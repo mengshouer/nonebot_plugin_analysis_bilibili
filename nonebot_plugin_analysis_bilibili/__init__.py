@@ -3,7 +3,7 @@ from .analysis_bilibili import b23_extract, bili_keyword
 from nonebot import on_message
 from nonebot.adapters.cqhttp import Bot, Event
 
-analysis_bili = on_message()
+analysis_bili = on_message(block=False)
 
 @analysis_bili.handle()
 async def analysis_main(bot: Bot, event: Event, state: dict):
