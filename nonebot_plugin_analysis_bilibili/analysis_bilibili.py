@@ -112,6 +112,14 @@ async def video_detail(url):
         title = f"标题：{res['title']}\n"
         up = f"UP主：{res['owner']['name']} (https://space.bilibili.com/{res['owner']['mid']})\n"
         desc = f"简介：{res['desc']}"
+        desc_list = desc.split("\n")
+        desc = ""
+        for i in desc_list:
+            if i:
+                desc += i + "\n"
+        desc_list = desc.split("\n")
+        if len(desc_list) > 4:
+            desc = desc_list[0] + "\n" + desc_list[1] + "\n" + desc_list[2] + "……"
         msg = str(vurl)+str(title)+str(up)+str(desc)
         return msg, vurl
     except Exception as e:
