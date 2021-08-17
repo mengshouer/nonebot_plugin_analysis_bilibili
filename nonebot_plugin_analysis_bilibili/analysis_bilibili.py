@@ -27,9 +27,8 @@ async def bili_keyword(group_id, text):
                 i += 1
         
         # 获取视频详细信息
-        if "www.bilibili.com/bangumi/play/" in url:
-            msg = await bangumi_detail(url)
-            vurl = url
+        if "bangumi" in url:
+            msg,vurl = await bangumi_detail(url)
         elif "live.bilibili.com" in url:
             msg,vurl = await live_detail(url)
         elif "article" in url:
@@ -51,9 +50,7 @@ async def bili_keyword(group_id, text):
     return msg
 
 async def b23_extract(text):
-    b23 = re.compile(r'b23.tv\\/(\w+)').search(text)
-    if not b23:
-        b23 = re.compile(r'b23.tv/(\w+)').search(text)
+    b23 = re.compile(r'b23.tv\\/(\w+)|(bili(22|23|33|2233).cn)(\\)?/(\w+)').search(text)
     url = f'https://b23.tv/{b23[1]}'
     async with aiohttp.request('GET', url, timeout=aiohttp.client.ClientTimeout(10)) as resp:
         r = str(resp.url)
@@ -65,16 +62,19 @@ async def extract(text:str):
         bvid = re.compile(r'(BV|bv)([a-zA-Z0-9])+').search(text)
         epid = re.compile(r'ep\d+').search(text)
         ssid = re.compile(r'ss\d+').search(text)
-        room_id = re.compile(r"live.bilibili.com/(\d+)").search(text)
+        mdid = re.compile(r'md\d+').search(text)
+        room_id = re.compile(r"live.bilibili.com/(blanc/|h5/)?(\d+)").search(text)
         cvid = re.compile(r'(cv|CV)\d+').search(text)
         if bvid:
             url = f'https://api.bilibili.com/x/web-interface/view?bvid={bvid[0]}'
         elif aid:
             url = f'https://api.bilibili.com/x/web-interface/view?aid={aid[0][2:]}'
         elif epid:
-            url = f'https://www.bilibili.com/bangumi/play/{epid[0]}'
+            url = f'https://bangumi.bilibili.com/view/web_api/season?ep_id={epid[0][2:]}'
         elif ssid:
-            url = f'https://www.bilibili.com/bangumi/play/{ssid[0]}'
+            url = f'https://bangumi.bilibili.com/view/web_api/season?season_id={ssid[0][2:]}'
+        elif mdid:
+            url = f'https://bangumi.bilibili.com/view/web_api/season?media_id={mdid[0][2:]}'
         elif room_id:
             url = f'https://api.live.bilibili.com/xlive/web-room/v1/index/getInfoByRoom?room_id={room_id.group(1)}'
         elif cvid:
@@ -108,7 +108,7 @@ async def video_detail(url):
         async with aiohttp.request('GET', url, timeout=aiohttp.client.ClientTimeout(10)) as resp:
             res = await resp.json()
             res = res['data']
-        vurl = f"URL：https://www.bilibili.com/video/av{res['aid']}\n"
+        vurl = f"https://www.bilibili.com/video/av{res['aid']}\n"
         title = f"标题：{res['title']}\n"
         up = f"UP主：{res['owner']['name']} (https://space.bilibili.com/{res['owner']['mid']})\n"
         desc = f"简介：{res['desc']}"
@@ -129,18 +129,28 @@ async def video_detail(url):
 async def bangumi_detail(url):
     try:
         async with aiohttp.request('GET', url, timeout=aiohttp.client.ClientTimeout(10)) as resp:
-            res = await resp.text()
-        content: lxml.html.HtmlElement = lxml.html.fromstring(res)
-        name = content.xpath('//*[@id="media_module"]/div/a/text()')
-        detail = content.xpath('//*[@id="media_module"]/div/div[2]/a[1]/text()')
-        pubinfo = content.xpath('//*[@id="media_module"]/div/div[2]/span/text()')
-        description = content.xpath('//*[@id="media_module"]/div/div[3]/a/span[1]/text()')
-        msg = f"URL：{url}\n标题：{name[0]}\n类型：{detail[0]}  {pubinfo[0]}\n简介：{description[0]}"
-        return msg
+            res = await resp.json()
+            res = res['result']
+        if "season_id" in url:
+            vurl = f"https://www.bilibili.com/bangumi/play/ss{res['season_id']}\n"
+        elif "media_id" in url:
+            vurl = f"https://www.bilibili.com/bangumi/media/md{res['media_id']}\n"
+        else:
+            epid = re.compile(r'ep_id=\d+').search(url)
+            vurl = f"https://www.bilibili.com/bangumi/play/ep{epid[0][len('ep_id='):]}\n"
+        title = f"标题：{res['title']}\n"
+        desc = f"{res['newest_ep']['desc']}\n"
+        style = ""
+        for i in res['style']:
+            style += i + ","
+        style = f"类型：{style[:-1]}\n"
+        evaluate = f"简介：{res['evaluate']}\n"
+        msg = str(vurl)+str(title)+str(desc)+str(style)+str(evaluate)
+        return msg, vurl
     except Exception as e:
         msg = "番剧解析出错--Error: {}".format(type(e))
         msg += f'\n{url}'
-        return msg
+        return msg, None
 
 async def live_detail(url):
     try:
@@ -158,7 +168,7 @@ async def live_detail(url):
         area_name = res['data']['room_info']['area_name']
         online = res['data']['room_info']['online']
         tags = res['data']['room_info']['tags']
-        vurl = f"URL：https://live.bilibili.com/{room_id}\n"
+        vurl = f"https://live.bilibili.com/{room_id}\n"
         if lock_status:
             lock_time = res['data']['room_info']['lock_time']
             lock_time = datetime.fromtimestamp(lock_time).strftime("%Y-%m-%d %H:%M:%S")
@@ -181,7 +191,7 @@ async def article_detail(url):
             res = await resp.json()
             res = res['data']
         cvid = re.compile(r'id=(\d+)').search(url).group(1)
-        vurl = f"URL：https://www.bilibili.com/read/cv{cvid}\n"
+        vurl = f"https://www.bilibili.com/read/cv{cvid}\n"
         title = f"标题：{res['title']}\n"
         up = f"作者：{res['author_name']} (https://space.bilibili.com/{res['mid']})\n"
         view = f"阅读数：{res['stats']['view']} "
