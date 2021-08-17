@@ -76,7 +76,7 @@ async def extract(text:str):
         elif mdid:
             url = f'https://bangumi.bilibili.com/view/web_api/season?media_id={mdid[0][2:]}'
         elif room_id:
-            url = f'https://api.live.bilibili.com/xlive/web-room/v1/index/getInfoByRoom?room_id={room_id.group(1)}'
+            url = f'https://api.live.bilibili.com/xlive/web-room/v1/index/getInfoByRoom?room_id={room_id[2]}'
         elif cvid:
             url = f"https://api.bilibili.com/x/article/viewinfo?id={cvid[0][2:]}&mobi_app=pc&from=web"
         return url
