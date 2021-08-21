@@ -50,7 +50,7 @@ async def bili_keyword(group_id, text):
     return msg
 
 async def b23_extract(text):
-    b23 = re.compile(r'b23.tv(\\)?/(\w+)|(bili(22|23|33|2233).cn)(\\)?/(\w+)').search(text)
+    b23 = re.compile(r'b23.tv/(\w+)|(bili(22|23|33|2233).cn)/(\w+)').search(text.replace("\\",""))
     url = f'https://{b23[0]}'
     async with aiohttp.request('GET', url, timeout=aiohttp.client.ClientTimeout(10)) as resp:
         r = str(resp.url)
@@ -173,13 +173,17 @@ async def live_detail(url):
             lock_time = res['data']['room_info']['lock_time']
             lock_time = datetime.fromtimestamp(lock_time).strftime("%Y-%m-%d %H:%M:%S")
             title = f"(已封禁)直播间封禁至：{lock_time}\n"
-        elif live_status:
+        elif live_status == 1:
             title = f"(直播中)标题：{title}\n"
+        elif live_status == 2:
+            title = f"(轮播中)标题：{title}\n"
         else:
             title = f"(未开播)标题：{title}\n"
         up = f"主播：{uname} 当前分区：{parent_area_name}-{area_name} 人气上一次刷新值：{online}\n"
-        tags = f"标签：{tags}"
-        msg = str(vurl)+str(title)+str(up)+str(tags)
+        if tags:
+            tags = f"标签：{tags}\n"
+        player = f"独立播放器：https://www.bilibili.com/blackboard/live/live-activity-player.html?enterTheRoom=0&cid={room_id}"
+        msg = str(vurl)+str(title)+str(up)+str(tags)+str(player)
         return msg, vurl
     except Exception as e:
         msg = "直播间解析出错--Error: {}".format(type(e))
