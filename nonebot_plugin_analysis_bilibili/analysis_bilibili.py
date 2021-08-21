@@ -65,6 +65,7 @@ async def extract(text:str):
         mdid = re.compile(r'md\d+').search(text)
         room_id = re.compile(r"live.bilibili.com/(blanc/|h5/)?(\d+)").search(text)
         cvid = re.compile(r'(cv|CV)\d+').search(text)
+        mcvid = re.compile(r'(read/mobile/)\d+').search(text)
         if bvid:
             url = f'https://api.bilibili.com/x/web-interface/view?bvid={bvid[0]}'
         elif aid:
@@ -79,6 +80,8 @@ async def extract(text:str):
             url = f'https://api.live.bilibili.com/xlive/web-room/v1/index/getInfoByRoom?room_id={room_id[2]}'
         elif cvid:
             url = f"https://api.bilibili.com/x/article/viewinfo?id={cvid[0][2:]}&mobi_app=pc&from=web"
+        elif mcvid:
+            url = f"https://api.bilibili.com/x/article/viewinfo?id={mcvid[0][12:]}&mobi_app=pc&from=web"
         return url
     except:
         return None
