@@ -3,12 +3,12 @@ from .analysis_bilibili import b23_extract, bili_keyword
 from nonebot import on_regex
 from nonebot.adapters import Bot, Event
 
-analysis_bili = on_regex("(b23.tv)|(bili(22|23|33|2233).cn)|(live.bilibili.com)|(bilibili.com/(video|read|bangumi))|(^(av|AV|CV|cv)(\d+))|(^(BV|bv)([0-9A-Za-z]{10}))|(\[\[QQ小程序\]哔哩哔哩\])|(QQ小程序&amp;#93;哔哩哔哩)|(QQ小程序&#93;哔哩哔哩)")
+analysis_bili = on_regex(r"(b23.tv)|(bili(22|23|33|2233).cn)|(live.bilibili.com)|(bilibili.com/(video|read|bangumi))|(^(av|cv)(\d+))|(^BV([a-zA-Z0-9])+)|(\[\[QQ小程序\]哔哩哔哩\])|(QQ小程序&amp;#93;哔哩哔哩)|(QQ小程序&#93;哔哩哔哩)", flags=re.I)
 
 @analysis_bili.handle()
 async def analysis_main(bot: Bot, event: Event, state: dict):
     text = str(event.message).strip()
-    if re.search(r"(b23.tv)|(bili(22|23|33|2233).cn)", text):
+    if re.search(r"(b23.tv)|(bili(22|23|33|2233).cn)", text, re.I):
         # 提前处理短链接，避免解析到其他的
         text = await b23_extract(text)
     try:
