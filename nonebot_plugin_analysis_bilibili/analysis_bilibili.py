@@ -59,7 +59,7 @@ async def b23_extract(text):
 async def extract(text:str):
     try:
         aid = re.compile(r'av\d+', re.I).search(text)
-        bvid = re.compile(r'BV([a-zA-Z0-9])+', re.I).search(text)
+        bvid = re.compile(r'BV([a-zA-Z0-9]{10})+', re.I).search(text)
         epid = re.compile(r'ep\d+', re.I).search(text)
         ssid = re.compile(r'ss\d+', re.I).search(text)
         mdid = re.compile(r'md\d+', re.I).search(text)
