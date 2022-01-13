@@ -1,10 +1,9 @@
 import re
-import json
 import aiohttp
 import asyncio
 import lxml.html
 import urllib.parse
-from datetime import datetime
+import time
 
 analysis_stat = {}   # analysis_stat: video_url(vurl)
 
@@ -171,7 +170,7 @@ async def live_detail(url):
         vurl = f"https://live.bilibili.com/{room_id}\n"
         if lock_status:
             lock_time = res['data']['room_info']['lock_time']
-            lock_time = datetime.fromtimestamp(lock_time).strftime("%Y-%m-%d %H:%M:%S")
+            lock_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(lock_time))
             title = f"(已封禁)直播间封禁至：{lock_time}\n"
         elif live_status == 1:
             title = f"(直播中)标题：{title}\n"
