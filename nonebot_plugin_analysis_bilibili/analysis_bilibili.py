@@ -9,7 +9,7 @@ analysis_stat = {}  # analysis_stat: video_url(vurl)
 async def bili_keyword(group_id, text):
     try:
         # 提取url
-        url = await extract(text)
+        url, page = await extract(text)
         # 如果是小程序就去搜索标题
         if not url:
             pattern = re.compile(r'"desc":".*?"')
@@ -34,7 +34,7 @@ async def bili_keyword(group_id, text):
         elif "article" in url:
             msg, vurl = await article_detail(url)
         else:
-            msg, vurl = await video_detail(url)
+            msg, vurl = await video_detail(url, page)
 
         # 避免多个机器人解析重复推送
         if group_id not in analysis_stat:
@@ -64,6 +64,7 @@ async def b23_extract(text):
 
 async def extract(text: str):
     try:
+        page = re.compile(r"\?p=\d+", re.I).search(text)
         aid = re.compile(r"av\d+", re.I).search(text)
         bvid = re.compile(r"BV([a-zA-Z0-9]{10})+", re.I).search(text)
         epid = re.compile(r"ep\d+", re.I).search(text)
@@ -89,9 +90,9 @@ async def extract(text: str):
             url = f"https://api.live.bilibili.com/xlive/web-room/v1/index/getInfoByRoom?room_id={room_id[2]}"
         elif cvid:
             url = f"https://api.bilibili.com/x/article/viewinfo?id={cvid[4]}&mobi_app=pc&from=web"
-        return url
+        return url, page
     except:
-        return None
+        return None, None
 
 
 async def search_bili_by_title(title: str):
@@ -111,15 +112,21 @@ async def search_bili_by_title(title: str):
         return url
 
 
-async def video_detail(url):
+async def video_detail(url, page):
     try:
         async with aiohttp.request(
             "GET", url, timeout=aiohttp.client.ClientTimeout(10)
         ) as resp:
             res = await resp.json()
             res = res["data"]
-        vurl = f"https://www.bilibili.com/video/av{res['aid']}\n"
-        title = f"标题：{res['title']}\n"
+        vurl = f"https://www.bilibili.com/video/av{res['aid']}"
+        title = f"\n标题：{res['title']}\n"
+        if page:
+            page = page[0]
+            p = int(page[len("?p=") :])
+            if p <= len(res["pages"]):
+                vurl += page + ""
+                title += f"小标题：{res['pages'][p]['part']}\n"
         tname = f"类型：{res['tname']} | UP：{res['owner']['name']}\n"
         stat = f"播放：{res['stat']['view']} | 弹幕：{res['stat']['danmaku']} | 收藏：{res['stat']['favorite']}\n"
         stat += f"点赞：{res['stat']['like']} | 硬币：{res['stat']['coin']} | 评论：{res['stat']['reply']}\n"
@@ -146,23 +153,33 @@ async def bangumi_detail(url):
         ) as resp:
             res = await resp.json()
             res = res["result"]
-        if "season_id" in url:
-            vurl = f"https://www.bilibili.com/bangumi/play/ss{res['season_id']}\n"
-        elif "media_id" in url:
-            vurl = f"https://www.bilibili.com/bangumi/media/md{res['media_id']}\n"
-        else:
-            epid = re.compile(r"ep_id=\d+").search(url)
-            vurl = (
-                f"https://www.bilibili.com/bangumi/play/ep{epid[0][len('ep_id='):]}\n"
-            )
-        title = f"标题：{res['title']}\n"
+        title = f"番剧：{res['title']}\n"
         desc = f"{res['newest_ep']['desc']}\n"
+        index_title = ""
         style = ""
         for i in res["style"]:
             style += i + ","
         style = f"类型：{style[:-1]}\n"
         evaluate = f"简介：{res['evaluate']}\n"
-        msg = str(vurl) + str(title) + str(desc) + str(style) + str(evaluate)
+        if "season_id" in url:
+            vurl = f"https://www.bilibili.com/bangumi/play/ss{res['season_id']}\n"
+        elif "media_id" in url:
+            vurl = f"https://www.bilibili.com/bangumi/media/md{res['media_id']}\n"
+        else:
+            epid = re.compile(r"ep_id=\d+").search(url)[0][len("ep_id=") :]
+            for i in res["episodes"]:
+                if str(i["ep_id"]) == epid:
+                    index_title = f"标题：{i['index_title']}\n"
+                    break
+            vurl = f"https://www.bilibili.com/bangumi/play/ep{epid}\n"
+        msg = (
+            str(vurl)
+            + str(title)
+            + str(index_title)
+            + str(desc)
+            + str(style)
+            + str(evaluate)
+        )
         return msg, vurl
     except Exception as e:
         msg = "番剧解析出错--Error: {}".format(type(e))
