@@ -64,7 +64,7 @@ async def b23_extract(text):
 
 async def extract(text: str):
     try:
-        page = re.compile(r"\?p=\d+", re.I).search(text)
+        page = re.compile(r"\?p=\d+").search(text)
         aid = re.compile(r"av\d+", re.I).search(text)
         bvid = re.compile(r"BV([a-zA-Z0-9]{10})+", re.I).search(text)
         epid = re.compile(r"ep\d+", re.I).search(text)
@@ -126,7 +126,7 @@ async def video_detail(url, page):
             p = int(page[len("?p=") :])
             if p <= len(res["pages"]):
                 vurl += page + ""
-                title += f"小标题：{res['pages'][p]['part']}\n"
+                title += f"小标题：{res['pages'][p-1]['part']}\n"
         tname = f"类型：{res['tname']} | UP：{res['owner']['name']}\n"
         stat = f"播放：{res['stat']['view']} | 弹幕：{res['stat']['danmaku']} | 收藏：{res['stat']['favorite']}\n"
         stat += f"点赞：{res['stat']['like']} | 硬币：{res['stat']['coin']} | 评论：{res['stat']['reply']}\n"
