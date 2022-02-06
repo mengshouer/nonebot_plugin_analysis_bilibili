@@ -34,12 +34,15 @@ _✨ NoneBot bilibili视频、番剧解析插件 ✨_
 私聊或群聊发送bilibili的小程序/链接
 
 ## 安装
-pip install nonebot_plugin_analysis_bilibili
-
+1. 使用nb-cli安装，不需要手动添加入口，更新使用pip
+```
+nb plugin install nonebot_plugin_analysis_bilibili
+```
+2. 使用pip安装和更新，初次安装需要手动添加入口
 ```
 pip install --upgrade nonebot_plugin_analysis_bilibili
 ```
-在 Nonebot2 入口文件（例如 bot.py ）增加：
+pip安装后在 Nonebot2 入口文件（例如 bot.py ）增加：
 ``` python
 nonebot.load_plugin("nonebot_plugin_analysis_bilibili")
 ```

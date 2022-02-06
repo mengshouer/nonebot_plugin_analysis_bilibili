@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "nonebot-plugin-analysis-bilibili"
-version = "2.2.7"
+version = "2.2.8"
 description = "nonebot2解析bilibili插件"
 authors = ["mengshouer"]
 license = "MIT"
