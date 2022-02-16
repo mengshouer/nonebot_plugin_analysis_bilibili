@@ -78,7 +78,7 @@ async def extract(text: str):
             text
         )
         dynamic_id_type2 = re.compile(
-            r"(t|m).bilibili.com/(\d+)\?(.*?)&type=2", re.I
+            r"(t|m).bilibili.com/(\d+)\?(.*?)(&|&amp;)type=2", re.I
         ).search(text)
         dynamic_id = re.compile(r"(t|m).bilibili.com/(\d+)", re.I).search(text)
         if bvid:
