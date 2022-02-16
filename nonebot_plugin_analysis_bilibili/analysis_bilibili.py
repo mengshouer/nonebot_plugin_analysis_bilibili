@@ -77,7 +77,10 @@ async def extract(text: str):
         cvid = re.compile(r"(cv|/read/(mobile|native)(/|\?id=))(\d+)", re.I).search(
             text
         )
-        dynamic_id = re.compile(r"t.bilibili.com/(\d+)", re.I).search(text)
+        dynamic_id_type2 = re.compile(
+            r"(t|m).bilibili.com/(\d+)\?(.*?)&type=2", re.I
+        ).search(text)
+        dynamic_id = re.compile(r"(t|m).bilibili.com/(\d+)", re.I).search(text)
         if bvid:
             url = f"https://api.bilibili.com/x/web-interface/view?bvid={bvid[0]}"
         elif aid:
@@ -94,8 +97,10 @@ async def extract(text: str):
             url = f"https://api.live.bilibili.com/xlive/web-room/v1/index/getInfoByRoom?room_id={room_id[2]}"
         elif cvid:
             url = f"https://api.bilibili.com/x/article/viewinfo?id={cvid[4]}&mobi_app=pc&from=web"
+        elif dynamic_id_type2:
+            url = f"https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/get_dynamic_detail?rid={dynamic_id_type2[2]}&type=2"
         elif dynamic_id:
-            url = f"https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/get_dynamic_detail?dynamic_id={dynamic_id[1]}"
+            url = f"https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/get_dynamic_detail?dynamic_id={dynamic_id[2]}"
         return url, page
     except:
         return None, None
