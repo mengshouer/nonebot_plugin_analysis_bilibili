@@ -46,3 +46,5 @@ pip安装后在 Nonebot2 入口文件（例如 bot.py ）增加：
 ``` python
 nonebot.load_plugin("nonebot_plugin_analysis_bilibili")
 ```
+
+附：[NekoAria的带图片版本(不支持a16)](https://github.com/NekoAria/nonebot_plugin_analysis_bilibili)
