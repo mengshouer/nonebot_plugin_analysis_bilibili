@@ -1,16 +1,17 @@
 import re
 from .analysis_bilibili import b23_extract, bili_keyword
 from nonebot import on_regex
-from nonebot.adapters import Bot, Event
+from nonebot.adapters import Event
 
 analysis_bili = on_regex(
-    r"(b23.tv)|(bili(22|23|33|2233).cn)|((live|t|m).bilibili.com/(blanc/|h5/)?(\d+))|(bilibili.com/(video|read|bangumi))|(^(av|cv)(\d+))|((^|bvid=)BV([a-zA-Z0-9]{10})+)|(\[\[QQ小程序\]哔哩哔哩\])|(QQ小程序&amp;#93;哔哩哔哩)|(QQ小程序&#93;哔哩哔哩)",
+    r"(b23.tv)|(bili(22|23|33|2233).cn)|((live|t|m).bilibili.com/(blanc/|h5/)?(\d+))|(bilibili.com/(video|read|bangumi))|(^(av|cv)(\d+))|((^|bvid=)BV([a-zA-Z0-9]{10})+)|"
+    r"(\[\[QQ小程序\]哔哩哔哩\])|(QQ小程序&amp;#93;哔哩哔哩)|(QQ小程序&#93;哔哩哔哩)",
     flags=re.I,
 )
 
 
 @analysis_bili.handle()
-async def analysis_main(bot: Bot, event: Event) -> None:
+async def analysis_main(event: Event) -> None:
     text = str(event.message).strip()
     if re.search(r"(b23.tv)|(bili(22|23|33|2233).cn)", text, re.I):
         # 提前处理短链接，避免解析到其他的
@@ -18,7 +19,7 @@ async def analysis_main(bot: Bot, event: Event) -> None:
     try:
         group_id = event.group_id
     except:
-        group_id = "1"
+        group_id = None
     msg = await bili_keyword(group_id, text)
     if msg:
         try:
