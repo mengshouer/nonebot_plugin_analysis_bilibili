@@ -16,9 +16,11 @@ async def analysis_main(event: Event) -> None:
     if re.search(r"(b23.tv)|(bili(22|23|33|2233).cn)", text, re.I):
         # 提前处理短链接，避免解析到其他的
         text = await b23_extract(text)
-    try:
+    if hasattr(event, "group_id"):
         group_id = event.group_id
-    except:
+    elif hasattr(event, "channel_id"):
+        group_id = event.channel_id
+    else:
         group_id = None
     msg = await bili_keyword(group_id, text)
     if msg:
