@@ -211,18 +211,20 @@ async def live_detail(url):
         if res["code"] == -400 or res["code"] == 19002000:
             msg = "直播间不存在"
             return msg, None
-        uname = res["data"]["anchor_info"]["base_info"]["uname"]
-        room_id = res["data"]["room_info"]["room_id"]
-        title = res["data"]["room_info"]["title"]
-        live_status = res["data"]["room_info"]["live_status"]
-        lock_status = res["data"]["room_info"]["lock_status"]
-        parent_area_name = res["data"]["room_info"]["parent_area_name"]
-        area_name = res["data"]["room_info"]["area_name"]
-        online = res["data"]["room_info"]["online"]
-        tags = res["data"]["room_info"]["tags"]
+        res = res["data"]
+        uname = res["anchor_info"]["base_info"]["uname"]
+        room_id = res["room_info"]["room_id"]
+        title = res["room_info"]["title"]
+        live_status = res["room_info"]["live_status"]
+        lock_status = res["room_info"]["lock_status"]
+        parent_area_name = res["room_info"]["parent_area_name"]
+        area_name = res["room_info"]["area_name"]
+        online = res["room_info"]["online"]
+        tags = res["room_info"]["tags"]
+        watched_show = res["watched_show"]["text_large"]
         vurl = f"https://live.bilibili.com/{room_id}\n"
         if lock_status:
-            lock_time = res["data"]["room_info"]["lock_time"]
+            lock_time = res["room_info"]["lock_time"]
             lock_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(lock_time))
             title = f"[已封禁]直播间封禁至：{lock_time}\n"
         elif live_status == 1:
@@ -231,14 +233,15 @@ async def live_detail(url):
             title = f"[轮播中]标题：{title}\n"
         else:
             title = f"[未开播]标题：{title}\n"
-        up = f"主播：{uname} 当前分区：{parent_area_name}-{area_name} 人气上一次刷新值：{online}\n"
+        up = f"主播：{uname}  当前分区：{parent_area_name}-{area_name}\n"
+        watch = f"观看：{watched_show}  直播时的人气上一次刷新值：{online}\n"
         if tags:
             tags = f"标签：{tags}\n"
         if live_status:
             player = f"独立播放器：https://www.bilibili.com/blackboard/live/live-activity-player.html?enterTheRoom=0&cid={room_id}"
         else:
             player = ""
-        msg = str(vurl) + str(title) + str(up) + str(tags) + str(player)
+        msg = str(vurl) + str(title) + str(up) + str(watch) + str(tags) + str(player)
         return msg, vurl
     except Exception as e:
         msg = "直播间解析出错--Error: {}".format(type(e))
