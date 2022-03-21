@@ -61,8 +61,10 @@ async def b23_extract(text):
     async with aiohttp.request(
         "GET", url, timeout=aiohttp.client.ClientTimeout(10)
     ) as resp:
-        r = str(resp.url)
-    return r
+        if resp.status == 200:
+            return str(resp.url)
+        else:
+            return resp.headers.get("location")
 
 
 async def extract(text: str):
