@@ -15,8 +15,7 @@
 
 # nonebot_plugin_analysis_bilibili
 
-
-_✨ NoneBot bilibili视频、番剧解析插件 ✨_
+_✨ NoneBot bilibili 视频、番剧解析插件 ✨_
 
 </div>
 
@@ -31,20 +30,35 @@ _✨ NoneBot bilibili视频、番剧解析插件 ✨_
 </p>
 
 ## 使用方式
-私聊或群聊发送bilibili的小程序/链接
+
+私聊或群聊发送 bilibili 的小程序/链接
+
+## 额外配置项(可选)
+
+在配置文件中加入
+
+```
+analysis_blacklist = [123456789] # 不解析里面填写的QQ号发的链接 List[int]
+```
 
 ## 安装
-1. 使用nb-cli安装，不需要手动添加入口，更新使用pip
+
+1. 使用 nb-cli 安装，不需要手动添加入口，更新使用 pip
+
 ```
 nb plugin install nonebot_plugin_analysis_bilibili
 ```
-2. 使用pip安装和更新，初次安装需要手动添加入口
+
+2. 使用 pip 安装和更新，初次安装需要手动添加入口
+
 ```
 pip install --upgrade nonebot_plugin_analysis_bilibili
 ```
-pip安装后在 Nonebot2 入口文件（例如 bot.py ）增加：
-``` python
+
+pip 安装后在 Nonebot2 入口文件（例如 bot.py ）增加：
+
+```python
 nonebot.load_plugin("nonebot_plugin_analysis_bilibili")
 ```
 
-附：[NekoAria的带图片版本(不支持a16)](https://github.com/NekoAria/nonebot_plugin_analysis_bilibili)
+附：[NekoAria 的带图片版本(不支持 a16)](https://github.com/NekoAria/nonebot_plugin_analysis_bilibili)

@@ -61,10 +61,7 @@ async def b23_extract(text):
     async with aiohttp.request(
         "GET", url, timeout=aiohttp.client.ClientTimeout(10)
     ) as resp:
-        if resp.status == 200:
-            return str(resp.url)
-        else:
-            return resp.headers.get("location")
+        return str(resp.url)
 
 
 async def extract(text: str):
@@ -116,15 +113,13 @@ async def search_bili_by_title(title: str):
     async with aiohttp.request(
         "GET", search_url, timeout=aiohttp.client.ClientTimeout(10)
     ) as resp:
-        r = await resp.json()
+        result = (await resp.json())["data"]["result"]
 
-    result = r["data"]["result"]
     for i in result:
         if i.get("result_type") != "video":
             continue
         # 只返回第一个结果
-        url = i["data"][0].get("arcurl")
-        return url
+        return i["data"][0].get("arcurl")
 
 
 async def video_detail(url, page):
@@ -132,8 +127,7 @@ async def video_detail(url, page):
         async with aiohttp.request(
             "GET", url, timeout=aiohttp.client.ClientTimeout(10)
         ) as resp:
-            res = await resp.json()
-            res = res["data"]
+            res = (await resp.json())["data"]
         vurl = f"https://www.bilibili.com/video/av{res['aid']}"
         title = f"\n标题：{res['title']}\n"
         if page:
@@ -168,8 +162,7 @@ async def bangumi_detail(url):
         async with aiohttp.request(
             "GET", url, timeout=aiohttp.client.ClientTimeout(10)
         ) as resp:
-            res = await resp.json()
-            res = res["result"]
+            res = (await resp.json())["result"]
         title = f"番剧：{res['title']}\n"
         desc = f"{res['newest_ep']['desc']}\n"
         index_title = ""
@@ -255,8 +248,7 @@ async def article_detail(url, cvid):
         async with aiohttp.request(
             "GET", url, timeout=aiohttp.client.ClientTimeout(10)
         ) as resp:
-            res = await resp.json()
-            res = res["data"]
+            res = (await resp.json())["data"]
         vurl = f"https://www.bilibili.com/read/cv{cvid}\n"
         title = f"标题：{res['title']}\n"
         up = f"作者：{res['author_name']} (https://space.bilibili.com/{res['mid']})\n"
@@ -279,8 +271,7 @@ async def dynamic_detail(url):
         async with aiohttp.request(
             "GET", url, timeout=aiohttp.client.ClientTimeout(10)
         ) as resp:
-            res = await resp.json()
-            res = res["data"]["card"]
+            res = (await resp.json())["data"]["card"]
         card = json.loads(res["card"])
         dynamic_id = res["desc"]["dynamic_id"]
         vurl = f"https://t.bilibili.com/{dynamic_id}\n"
