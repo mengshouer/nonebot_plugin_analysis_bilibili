@@ -10,7 +10,7 @@ analysis_stat = {}  # analysis_stat: video_url(vurl)
 async def bili_keyword(group_id, text):
     try:
         # 提取url
-        url, page = await extract(text)
+        url, page, time = await extract(text)
         # 如果是小程序就去搜索标题
         if not url:
             pattern = re.compile(r'"desc":".*?"')
@@ -24,15 +24,15 @@ async def bili_keyword(group_id, text):
                     continue
                 vurl = await search_bili_by_title(title["desc"])
                 if vurl:
-                    url, page = await extract(vurl)
+                    url, page, time = await extract(vurl)
                     break
 
         # 获取视频详细信息
         msg, vurl = "", ""
         if "view?" in url:
-            msg, vurl = await video_detail(url, page)
+            msg, vurl = await video_detail(url, page=page, time=time)
         elif "bangumi" in url:
-            msg, vurl = await bangumi_detail(url)
+            msg, vurl = await bangumi_detail(url, time)
         elif "xlive" in url:
             msg, vurl = await live_detail(url)
         elif "article" in url:
@@ -68,6 +68,7 @@ async def extract(text: str):
     try:
         url = ""
         page = re.compile(r"([?&]|&amp;)p=\d+").search(text)
+        time = re.compile(r"([?&]|&amp;)t=\d+").search(text)
         aid = re.compile(r"av\d+", re.I).search(text)
         bvid = re.compile(r"BV([A-Za-z0-9]{10})+", re.I).search(text)
         epid = re.compile(r"ep\d+", re.I).search(text)
@@ -102,7 +103,7 @@ async def extract(text: str):
             url = f"https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/get_dynamic_detail?rid={dynamic_id_type2[2]}&type=2"
         elif dynamic_id:
             url = f"https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/get_dynamic_detail?dynamic_id={dynamic_id[2]}"
-        return url, page
+        return url, page, time
     except Exception:
         return "", None
 
@@ -122,7 +123,7 @@ async def search_bili_by_title(title: str):
         return i["data"][0].get("arcurl")
 
 
-async def video_detail(url, page):
+async def video_detail(url, **kwargs):
     try:
         async with aiohttp.request(
             "GET", url, timeout=aiohttp.client.ClientTimeout(10)
@@ -132,6 +133,7 @@ async def video_detail(url, page):
                 return "解析到视频被删了/稿件不可见或审核中/权限不足", url
         vurl = f"https://www.bilibili.com/video/av{res['aid']}"
         title = f"\n标题：{res['title']}\n"
+        page = kwargs.get("page")
         if page:
             page = page[0].replace("&amp;", "&")
             p = int(page[3:])
@@ -140,6 +142,13 @@ async def video_detail(url, page):
                 part = res["pages"][p - 1]["part"]
                 if part != res["title"]:
                     title += f"小标题：{part}\n"
+        time = kwargs.get("time")
+        if time:
+            time = time[0].replace("&amp;", "&")[3:]
+            if page:
+                vurl += f"&t={time}"
+            else:
+                vurl += f"?t={time}"
         tname = f"类型：{res['tname']} | UP：{res['owner']['name']}\n"
         stat = f"播放：{res['stat']['view']} | 弹幕：{res['stat']['danmaku']} | 收藏：{res['stat']['favorite']}\n"
         stat += f"点赞：{res['stat']['like']} | 硬币：{res['stat']['coin']} | 评论：{res['stat']['reply']}\n"
@@ -159,7 +168,7 @@ async def video_detail(url, page):
         return msg, None
 
 
-async def bangumi_detail(url):
+async def bangumi_detail(url, time):
     try:
         async with aiohttp.request(
             "GET", url, timeout=aiohttp.client.ClientTimeout(10)
@@ -176,18 +185,22 @@ async def bangumi_detail(url):
         style = f"类型：{style[:-1]}\n"
         evaluate = f"简介：{res['evaluate']}\n"
         if "season_id" in url:
-            vurl = f"https://www.bilibili.com/bangumi/play/ss{res['season_id']}\n"
+            vurl = f"https://www.bilibili.com/bangumi/play/ss{res['season_id']}"
         elif "media_id" in url:
-            vurl = f"https://www.bilibili.com/bangumi/media/md{res['media_id']}\n"
+            vurl = f"https://www.bilibili.com/bangumi/media/md{res['media_id']}"
         else:
             epid = re.compile(r"ep_id=\d+").search(url)[0][len("ep_id=") :]
             for i in res["episodes"]:
                 if str(i["ep_id"]) == epid:
                     index_title = f"标题：{i['index_title']}\n"
                     break
-            vurl = f"https://www.bilibili.com/bangumi/play/ep{epid}\n"
+            vurl = f"https://www.bilibili.com/bangumi/play/ep{epid}"
+        if time:
+            time = time[0].replace("&amp;", "&")[3:]
+            vurl += f"?t={time}"
         msg = (
             str(vurl)
+            + "\n"
             + str(title)
             + str(index_title)
             + str(desc)
