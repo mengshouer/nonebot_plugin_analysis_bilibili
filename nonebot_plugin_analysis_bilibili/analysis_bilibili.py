@@ -123,6 +123,13 @@ async def search_bili_by_title(title: str):
         return i["data"][0].get("arcurl")
 
 
+# 处理超过一万的数字
+def handle_num(num: int):
+    if num > 10000:
+        num = f"{num / 10000:.2f}万"
+    return num
+
+
 async def video_detail(url, **kwargs):
     try:
         async with aiohttp.request(
@@ -150,8 +157,8 @@ async def video_detail(url, **kwargs):
             else:
                 vurl += f"?t={time}"
         tname = f"类型：{res['tname']} | UP：{res['owner']['name']}\n"
-        stat = f"播放：{res['stat']['view']} | 弹幕：{res['stat']['danmaku']} | 收藏：{res['stat']['favorite']}\n"
-        stat += f"点赞：{res['stat']['like']} | 硬币：{res['stat']['coin']} | 评论：{res['stat']['reply']}\n"
+        stat = f"播放：{handle_num(res['stat']['view'])} | 弹幕：{handle_num(res['stat']['danmaku'])} | 收藏：{handle_num(res['stat']['favorite'])}\n"
+        stat += f"点赞：{handle_num(res['stat']['like'])} | 硬币：{handle_num(res['stat']['coin'])} | 评论：{handle_num(res['stat']['reply'])}\n"
         desc = f"简介：{res['desc']}"
         desc_list = desc.split("\n")
         desc = ""
@@ -245,7 +252,7 @@ async def live_detail(url):
         else:
             title = f"[未开播]标题：{title}\n"
         up = f"主播：{uname}  当前分区：{parent_area_name}-{area_name}\n"
-        watch = f"观看：{watched_show}  直播时的人气上一次刷新值：{online}\n"
+        watch = f"观看：{watched_show}  直播时的人气上一次刷新值：{handle_num(online)}\n"
         if tags:
             tags = f"标签：{tags}\n"
         if live_status:
@@ -270,12 +277,12 @@ async def article_detail(url, cvid):
         vurl = f"https://www.bilibili.com/read/cv{cvid}\n"
         title = f"标题：{res['title']}\n"
         up = f"作者：{res['author_name']} (https://space.bilibili.com/{res['mid']})\n"
-        view = f"阅读数：{res['stats']['view']} "
-        favorite = f"收藏数：{res['stats']['favorite']} "
-        coin = f"硬币数：{res['stats']['coin']}"
-        share = f"分享数：{res['stats']['share']} "
-        like = f"点赞数：{res['stats']['like']} "
-        dislike = f"不喜欢数：{res['stats']['dislike']}"
+        view = f"阅读数：{handle_num(res['stats']['view'])} "
+        favorite = f"收藏数：{handle_num(res['stats']['favorite'])} "
+        coin = f"硬币数：{handle_num(res['stats']['coin'])}"
+        share = f"分享数：{handle_num(res['stats']['share'])} "
+        like = f"点赞数：{handle_num(res['stats']['like'])} "
+        dislike = f"不喜欢数：{handle_num(res['stats']['dislike'])}"
         desc = view + favorite + coin + "\n" + share + like + dislike
         msg = str(vurl) + str(title) + str(up) + str(desc)
         return msg, vurl
