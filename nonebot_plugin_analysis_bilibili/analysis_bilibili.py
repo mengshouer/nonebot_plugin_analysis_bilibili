@@ -10,7 +10,7 @@ analysis_stat = {}  # analysis_stat: video_url(vurl)
 async def bili_keyword(group_id, text):
     try:
         # 提取url
-        url, page, time = await extract(text)
+        url, page, time_location = extract(text)
         # 如果是小程序就去搜索标题
         if not url:
             pattern = re.compile(r'"desc":".*?"')
@@ -24,15 +24,15 @@ async def bili_keyword(group_id, text):
                     continue
                 vurl = await search_bili_by_title(title["desc"])
                 if vurl:
-                    url, page, time = await extract(vurl)
+                    url, page, time_location = extract(vurl)
                     break
 
         # 获取视频详细信息
         msg, vurl = "", ""
         if "view?" in url:
-            msg, vurl = await video_detail(url, page=page, time=time)
+            msg, vurl = await video_detail(url, page=page, time=time_location)
         elif "bangumi" in url:
-            msg, vurl = await bangumi_detail(url, time)
+            msg, vurl = await bangumi_detail(url, time_location)
         elif "xlive" in url:
             msg, vurl = await live_detail(url)
         elif "article" in url:
@@ -64,7 +64,7 @@ async def b23_extract(text):
         return str(resp.url)
 
 
-async def extract(text: str):
+def extract(text: str):
     try:
         url = ""
         page = re.compile(r"([?&]|&amp;)p=\d+").search(text)
@@ -149,22 +149,20 @@ async def video_detail(url, **kwargs):
                 part = res["pages"][p - 1]["part"]
                 if part != res["title"]:
                     title += f"小标题：{part}\n"
-        time = kwargs.get("time")
-        if time:
-            time = time[0].replace("&amp;", "&")[3:]
+        time_location = kwargs.get("time")
+        if time_location:
+            time_location = time_location[0].replace("&amp;", "&")[3:]
             if page:
-                vurl += f"&t={time}"
+                vurl += f"&t={time_location}"
             else:
-                vurl += f"?t={time}"
-        tname = f"类型：{res['tname']} | UP：{res['owner']['name']}\n"
+                vurl += f"?t={time_location}"
+        pubdate = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(res["pubdate"]))
+        tname = f"类型：{res['tname']} | UP：{res['owner']['name']} | 日期：{pubdate}\n"
         stat = f"播放：{handle_num(res['stat']['view'])} | 弹幕：{handle_num(res['stat']['danmaku'])} | 收藏：{handle_num(res['stat']['favorite'])}\n"
         stat += f"点赞：{handle_num(res['stat']['like'])} | 硬币：{handle_num(res['stat']['coin'])} | 评论：{handle_num(res['stat']['reply'])}\n"
         desc = f"简介：{res['desc']}"
         desc_list = desc.split("\n")
-        desc = ""
-        for i in desc_list:
-            if i:
-                desc += i + "\n"
+        desc = "".join(i + "\n" for i in desc_list if i)
         desc_list = desc.split("\n")
         if len(desc_list) > 4:
             desc = desc_list[0] + "\n" + desc_list[1] + "\n" + desc_list[2] + "……"
@@ -186,9 +184,7 @@ async def bangumi_detail(url, time):
         title = f"番剧：{res['title']}\n"
         desc = f"{res['newest_ep']['desc']}\n"
         index_title = ""
-        style = ""
-        for i in res["style"]:
-            style += i + ","
+        style = "".join(f"{i}," for i in res["style"])
         style = f"类型：{style[:-1]}\n"
         evaluate = f"简介：{res['evaluate']}\n"
         if "season_id" in url:
