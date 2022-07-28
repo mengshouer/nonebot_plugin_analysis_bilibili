@@ -30,7 +30,7 @@ async def bili_keyword(group_id, text):
         # 获取视频详细信息
         msg, vurl = "", ""
         if "view?" in url:
-            msg, vurl = await video_detail(url, page=page, time=time_location)
+            msg, vurl = await video_detail(url, page=page, time_location=time_location)
         elif "bangumi" in url:
             msg, vurl = await bangumi_detail(url, time_location)
         elif "xlive" in url:
@@ -149,7 +149,7 @@ async def video_detail(url, **kwargs):
                 part = res["pages"][p - 1]["part"]
                 if part != res["title"]:
                     title += f"小标题：{part}\n"
-        time_location = kwargs.get("time")
+        time_location = kwargs.get("time_location")
         if time_location:
             time_location = time_location[0].replace("&amp;", "&")[3:]
             if page:
@@ -173,7 +173,7 @@ async def video_detail(url, **kwargs):
         return msg, None
 
 
-async def bangumi_detail(url, time):
+async def bangumi_detail(url, time_location):
     try:
         async with aiohttp.request(
             "GET", url, timeout=aiohttp.client.ClientTimeout(10)
@@ -198,9 +198,9 @@ async def bangumi_detail(url, time):
                     index_title = f"标题：{i['index_title']}\n"
                     break
             vurl = f"https://www.bilibili.com/bangumi/play/ep{epid}"
-        if time:
-            time = time[0].replace("&amp;", "&")[3:]
-            vurl += f"?t={time}"
+        if time_location:
+            time_location = time_location[0].replace("&amp;", "&")[3:]
+            vurl += f"?t={time_location}"
         msg = (
             str(vurl)
             + "\n"
