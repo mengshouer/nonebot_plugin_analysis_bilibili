@@ -39,6 +39,7 @@ _✨ NoneBot bilibili 视频、番剧解析插件 ✨_
 
 ```
 analysis_blacklist = [123456789] # 不解析里面填写的QQ号发的链接 List[int]
+analysis_display_image = true # 是否显示封面 true/false
 ```
 
 ## 安装
@@ -61,4 +62,4 @@ pip 安装后在 Nonebot2 入口文件（例如 bot.py ）增加：
 nonebot.load_plugin("nonebot_plugin_analysis_bilibili")
 ```
 
-附：[NekoAria 的带图片版本(不支持 a16)](https://github.com/NekoAria/nonebot_plugin_analysis_bilibili)
+附：支持 a16 最后一版为 2.4.3

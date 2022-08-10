@@ -1,8 +1,7 @@
 import re
-import nonebot
 from nonebot import on_regex, logger
 from nonebot.adapters import Event
-from .analysis_bilibili import b23_extract, bili_keyword
+from .analysis_bilibili import config, b23_extract, bili_keyword
 
 analysis_bili = on_regex(
     r"(b23.tv)|(bili(22|23|33|2233).cn)|(.bilibili.com)|(^(av|cv)(\d+))|(^BV([a-zA-Z0-9]{10})+)|"
@@ -10,7 +9,7 @@ analysis_bili = on_regex(
     flags=re.I,
 )
 
-blacklist = getattr(nonebot.get_driver().config, "analysis_blacklist", [])
+blacklist = getattr(config, "analysis_blacklist", [])
 
 
 @analysis_bili.handle()

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "nonebot-plugin-analysis-bilibili"
-version = "2.4.3"
+version = "2.4.4"
 description = "nonebot2解析bilibili插件"
 authors = ["mengshouer"]
 license = "MIT"
@@ -12,7 +12,7 @@ keywords = ["nonebot", "nonebot2", "bilibili"]
 [tool.poetry.dependencies]
 python = "^3.8"
 aiohttp = "^3.7"
-nonebot2 = "^2.0.0a16"
+nonebot2 = "^2.0.0-beta.5"
 
 [tool.poetry.dev-dependencies]
 

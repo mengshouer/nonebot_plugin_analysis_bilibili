@@ -1,10 +1,16 @@
 import re
-import aiohttp
-import time
 import urllib.parse
 import json
+from time import localtime, strftime
+
+import aiohttp
+import nonebot
+from nonebot.adapters.onebot.v11 import Message, MessageSegment
 
 analysis_stat = {}  # analysis_stat: video_url(vurl)
+
+config = nonebot.get_driver().config
+analysis_display_image = getattr(config, "analysis_display_image", False)
 
 
 async def bili_keyword(group_id, text):
@@ -140,6 +146,7 @@ async def video_detail(url, **kwargs):
                 return "解析到视频被删了/稿件不可见或审核中/权限不足", url
         vurl = f"https://www.bilibili.com/video/av{res['aid']}"
         title = f"\n标题：{res['title']}\n"
+        cover = MessageSegment.image(res["pic"]) if analysis_display_image else ""
         page = kwargs.get("page")
         if page:
             page = page[0].replace("&amp;", "&")
@@ -156,7 +163,7 @@ async def video_detail(url, **kwargs):
                 vurl += f"&t={time_location}"
             else:
                 vurl += f"?t={time_location}"
-        pubdate = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(res["pubdate"]))
+        pubdate = strftime("%Y-%m-%d %H:%M:%S", localtime(res["pubdate"]))
         tname = f"类型：{res['tname']} | UP：{res['owner']['name']} | 日期：{pubdate}\n"
         stat = f"播放：{handle_num(res['stat']['view'])} | 弹幕：{handle_num(res['stat']['danmaku'])} | 收藏：{handle_num(res['stat']['favorite'])}\n"
         stat += f"点赞：{handle_num(res['stat']['like'])} | 硬币：{handle_num(res['stat']['coin'])} | 评论：{handle_num(res['stat']['reply'])}\n"
@@ -166,7 +173,7 @@ async def video_detail(url, **kwargs):
         desc_list = desc.split("\n")
         if len(desc_list) > 4:
             desc = desc_list[0] + "\n" + desc_list[1] + "\n" + desc_list[2] + "……"
-        msg = str(vurl) + str(title) + str(tname) + str(stat) + str(desc)
+        msg = Message([cover, vurl, title, tname, stat, desc])
         return msg, vurl
     except Exception as e:
         msg = "视频解析出错--Error: {}".format(type(e))
@@ -181,6 +188,7 @@ async def bangumi_detail(url, time_location):
             res = (await resp.json()).get("result")
             if not res:
                 return None, None
+        cover = MessageSegment.image(res["cover"]) if analysis_display_image else ""
         title = f"番剧：{res['title']}\n"
         desc = f"{res['newest_ep']['desc']}\n"
         index_title = ""
@@ -201,15 +209,7 @@ async def bangumi_detail(url, time_location):
         if time_location:
             time_location = time_location[0].replace("&amp;", "&")[3:]
             vurl += f"?t={time_location}"
-        msg = (
-            str(vurl)
-            + "\n"
-            + str(title)
-            + str(index_title)
-            + str(desc)
-            + str(style)
-            + str(evaluate)
-        )
+        msg = Message([cover, f"{vurl}\n", title, index_title, desc, style, evaluate])
         return msg, vurl
     except Exception as e:
         msg = "番剧解析出错--Error: {}".format(type(e))
@@ -229,6 +229,11 @@ async def live_detail(url):
         uname = res["anchor_info"]["base_info"]["uname"]
         room_id = res["room_info"]["room_id"]
         title = res["room_info"]["title"]
+        cover = (
+            MessageSegment.image(res["room_info"]["cover"])
+            if analysis_display_image
+            else ""
+        )
         live_status = res["room_info"]["live_status"]
         lock_status = res["room_info"]["lock_status"]
         parent_area_name = res["room_info"]["parent_area_name"]
@@ -239,7 +244,7 @@ async def live_detail(url):
         vurl = f"https://live.bilibili.com/{room_id}\n"
         if lock_status:
             lock_time = res["room_info"]["lock_time"]
-            lock_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(lock_time))
+            lock_time = strftime("%Y-%m-%d %H:%M:%S", localtime(lock_time))
             title = f"[已封禁]直播间封禁至：{lock_time}\n"
         elif live_status == 1:
             title = f"[直播中]标题：{title}\n"
@@ -255,7 +260,7 @@ async def live_detail(url):
             player = f"独立播放器：https://www.bilibili.com/blackboard/live/live-activity-player.html?enterTheRoom=0&cid={room_id}"
         else:
             player = ""
-        msg = str(vurl) + str(title) + str(up) + str(watch) + str(tags) + str(player)
+        msg = Message([cover, vurl, title, up, watch, tags, player])
         return msg, vurl
     except Exception as e:
         msg = "直播间解析出错--Error: {}".format(type(e))
@@ -270,7 +275,12 @@ async def article_detail(url, cvid):
             res = (await resp.json()).get("data")
             if not res:
                 return None, None
-        vurl = f"https://www.bilibili.com/read/cv{cvid}\n"
+        images = (
+            [MessageSegment.image(i) for i in res["origin_image_urls"]]
+            if analysis_display_image
+            else []
+        )
+        vurl = f"https://www.bilibili.com/read/cv{cvid}"
         title = f"标题：{res['title']}\n"
         up = f"作者：{res['author_name']} (https://space.bilibili.com/{res['mid']})\n"
         view = f"阅读数：{handle_num(res['stats']['view'])} "
@@ -279,8 +289,9 @@ async def article_detail(url, cvid):
         share = f"分享数：{handle_num(res['stats']['share'])} "
         like = f"点赞数：{handle_num(res['stats']['like'])} "
         dislike = f"不喜欢数：{handle_num(res['stats']['dislike'])}"
-        desc = view + favorite + coin + "\n" + share + like + dislike
-        msg = str(vurl) + str(title) + str(up) + str(desc)
+        desc = view + favorite + coin + "\n" + share + like + dislike + "\n"
+        msg = Message(images)
+        msg.extend([title, up, desc, vurl])
         return msg, vurl
     except Exception as e:
         msg = "专栏解析出错--Error: {}".format(type(e))
@@ -307,8 +318,11 @@ async def dynamic_detail(url):
         content = content.replace("\r", "\n")
         if len(content) > 250:
             content = content[:250] + "......"
-        pics = item.get("pictures_count")
-        if pics:
+        images = item.get("pictures") if analysis_display_image else []
+        if images:
+            images = [MessageSegment.image(i.get("img_src")) for i in images]
+        else:
+            pics = item.get("pictures_count")
             content += f"\nPS：动态中包含{pics}张图片"
         origin = card.get("origin")
         if origin:
@@ -318,7 +332,9 @@ async def dynamic_detail(url):
                 content += f"\n动态包含转发视频{short_link}"
             else:
                 content += f"\n动态包含转发其他动态"
-        msg = str(vurl) + str(content)
+        msg = Message(content)
+        msg.extend(images)
+        msg.append(f"\n{vurl}")
         return msg, vurl
     except Exception as e:
         msg = "动态解析出错--Error: {}".format(type(e))
