@@ -10,6 +10,7 @@ analysis_bili = on_regex(
 )
 
 blacklist = getattr(config, "analysis_blacklist", [])
+group_blacklist = getattr(config, "analysis_group_blacklist", [])
 
 
 @analysis_bili.handle()
@@ -26,6 +27,8 @@ async def analysis_main(event: Event) -> None:
         group_id = event.channel_id
     else:
         group_id = None
+    if group_id in group_blacklist:
+        return
     msg = await bili_keyword(group_id, text)
     if msg:
         try:
