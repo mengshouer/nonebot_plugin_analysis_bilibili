@@ -39,6 +39,7 @@ _✨ NoneBot bilibili 视频、番剧解析插件 ✨_
 
 ```
 analysis_blacklist = [123456789] # 不解析里面填写的QQ号发的链接 List[int]
+analysis_group_blacklist = [123456789] # 不解析里面填写的QQ群号发的链接 List[int]
 analysis_display_image = true # 是否显示封面 true/false
 ```
 
