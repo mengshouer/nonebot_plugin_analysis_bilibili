@@ -2,36 +2,30 @@ import re
 import urllib.parse
 import json
 from time import localtime, strftime
+from typing import Dict, Optional, Tuple, Union
 
 import aiohttp
 import nonebot
 from nonebot.adapters.onebot.v11 import Message, MessageSegment
 
-analysis_stat = {}  # analysis_stat: video_url(vurl)
+# group_id : last_vurl
+analysis_stat: Dict[int, str] = {}
 
 config = nonebot.get_driver().config
 analysis_display_image = getattr(config, "analysis_display_image", False)
+analysis_display_image_list = getattr(config, "analysis_display_image_list", [])
 
 
-async def bili_keyword(group_id, text):
+async def bili_keyword(group_id: Optional[int], text: str) -> Union[Message, str]:
     try:
         # 提取url
         url, page, time_location = extract(text)
         # 如果是小程序就去搜索标题
         if not url:
-            pattern = re.compile(r'"desc":".*?"')
-            desc = re.findall(pattern, text)
-            i = 0
-            while i < len(desc):
-                title_dict = "{" + desc[i] + "}"
-                title = json.loads(title_dict)
-                i += 1
-                if title["desc"] == "哔哩哔哩":
-                    continue
-                vurl = await search_bili_by_title(title["desc"])
-                if vurl:
-                    url, page, time_location = extract(vurl)
-                    break
+            title = re.search(r'"desc":("[^"哔哩]+")', text)
+            vurl = await search_bili_by_title(title[1])
+            if vurl:
+                url, page, time_location = extract(vurl)
 
         # 获取视频详细信息
         msg, vurl = "", ""
@@ -47,19 +41,16 @@ async def bili_keyword(group_id, text):
             msg, vurl = await dynamic_detail(url)
 
         # 避免多个机器人解析重复推送
-        last_vurl = ""
         if group_id:
-            if group_id in analysis_stat:
-                last_vurl = analysis_stat[group_id]
+            if group_id in analysis_stat and analysis_stat[group_id] == vurl:
+                return ""
             analysis_stat[group_id] = vurl
-        if last_vurl == vurl:
-            return
     except Exception as e:
         msg = "bili_keyword Error: {}".format(type(e))
     return msg
 
 
-async def b23_extract(text):
+async def b23_extract(text: str) -> str:
     b23 = re.compile(r"b23.tv/(\w+)|(bili(22|23|33|2233).cn)/(\w+)", re.I).search(
         text.replace("\\", "")
     )
@@ -70,7 +61,7 @@ async def b23_extract(text):
         return str(resp.url)
 
 
-def extract(text: str):
+def extract(text: str) -> Tuple[str, Optional[str], Optional[str]]:
     try:
         url = ""
         page = re.compile(r"([?&]|&amp;)p=\d+").search(text)
@@ -111,10 +102,10 @@ def extract(text: str):
             url = f"https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/get_dynamic_detail?dynamic_id={dynamic_id[2]}"
         return url, page, time
     except Exception:
-        return "", None
+        return "", None, None
 
 
-async def search_bili_by_title(title: str):
+async def search_bili_by_title(title: str) -> str:
     search_url = f"https://api.bilibili.com/x/web-interface/search/all/v2?keyword={urllib.parse.quote(title)}"
 
     async with aiohttp.request(
@@ -130,13 +121,13 @@ async def search_bili_by_title(title: str):
 
 
 # 处理超过一万的数字
-def handle_num(num: int):
+def handle_num(num: int) -> str:
     if num > 10000:
         num = f"{num / 10000:.2f}万"
     return num
 
 
-async def video_detail(url, **kwargs):
+async def video_detail(url: str, **kwargs) -> Tuple[Union[Message, str], str]:
     try:
         async with aiohttp.request(
             "GET", url, timeout=aiohttp.client.ClientTimeout(10)
@@ -146,7 +137,11 @@ async def video_detail(url, **kwargs):
                 return "解析到视频被删了/稿件不可见或审核中/权限不足", url
         vurl = f"https://www.bilibili.com/video/av{res['aid']}"
         title = f"\n标题：{res['title']}\n"
-        cover = MessageSegment.image(res["pic"]) if analysis_display_image else ""
+        cover = (
+            MessageSegment.image(res["pic"])
+            if analysis_display_image or "video" in analysis_display_image_list
+            else ""
+        )
         page = kwargs.get("page")
         if page:
             page = page[0].replace("&amp;", "&")
@@ -180,7 +175,9 @@ async def video_detail(url, **kwargs):
         return msg, None
 
 
-async def bangumi_detail(url, time_location):
+async def bangumi_detail(
+    url: str, time_location: str = None
+) -> Tuple[Union[Message, str], str]:
     try:
         async with aiohttp.request(
             "GET", url, timeout=aiohttp.client.ClientTimeout(10)
@@ -188,7 +185,11 @@ async def bangumi_detail(url, time_location):
             res = (await resp.json()).get("result")
             if not res:
                 return None, None
-        cover = MessageSegment.image(res["cover"]) if analysis_display_image else ""
+        cover = (
+            MessageSegment.image(res["cover"])
+            if analysis_display_image or "bangumi" in analysis_display_image_list
+            else ""
+        )
         title = f"番剧：{res['title']}\n"
         desc = f"{res['newest_ep']['desc']}\n"
         index_title = ""
@@ -217,7 +218,7 @@ async def bangumi_detail(url, time_location):
         return msg, None
 
 
-async def live_detail(url):
+async def live_detail(url: str) -> Tuple[Union[Message, str], str]:
     try:
         async with aiohttp.request(
             "GET", url, timeout=aiohttp.client.ClientTimeout(10)
@@ -231,7 +232,7 @@ async def live_detail(url):
         title = res["room_info"]["title"]
         cover = (
             MessageSegment.image(res["room_info"]["cover"])
-            if analysis_display_image
+            if analysis_display_image or "live" in analysis_display_image_list
             else ""
         )
         live_status = res["room_info"]["live_status"]
@@ -267,7 +268,7 @@ async def live_detail(url):
         return msg, None
 
 
-async def article_detail(url, cvid):
+async def article_detail(url: str, cvid: str) -> Tuple[Union[Message, str], str]:
     try:
         async with aiohttp.request(
             "GET", url, timeout=aiohttp.client.ClientTimeout(10)
@@ -277,7 +278,7 @@ async def article_detail(url, cvid):
                 return None, None
         images = (
             [MessageSegment.image(i) for i in res["origin_image_urls"]]
-            if analysis_display_image
+            if analysis_display_image or "article" in analysis_display_image_list
             else []
         )
         vurl = f"https://www.bilibili.com/read/cv{cvid}"
@@ -298,7 +299,7 @@ async def article_detail(url, cvid):
         return msg, None
 
 
-async def dynamic_detail(url):
+async def dynamic_detail(url: str) -> Tuple[Union[Message, str], str]:
     try:
         async with aiohttp.request(
             "GET", url, timeout=aiohttp.client.ClientTimeout(10)
@@ -318,7 +319,11 @@ async def dynamic_detail(url):
         content = content.replace("\r", "\n")
         if len(content) > 250:
             content = content[:250] + "......"
-        images = item.get("pictures") if analysis_display_image else []
+        images = (
+            item.get("pictures")
+            if analysis_display_image or "dynamic" in analysis_display_image_list
+            else []
+        )
         if images:
             images = [MessageSegment.image(i.get("img_src")) for i in images]
         else:

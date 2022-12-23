@@ -30,7 +30,8 @@ async def analysis_main(event: Event) -> None:
     if msg:
         try:
             await analysis_bili.send(msg)
-        except:
+        except Exception as e:
+            logger.exception(e)
             logger.warning(f"{msg}\n此次解析可能被风控，尝试去除简介后发送！")
             msg = re.sub(r"简介.*", "", msg)
             await analysis_bili.send(msg)

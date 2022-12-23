@@ -40,6 +40,9 @@ _✨ NoneBot bilibili 视频、番剧解析插件 ✨_
 ```
 analysis_blacklist = [123456789] # 不解析里面填写的QQ号发的链接 List[int]
 analysis_display_image = true # 是否显示封面 true/false
+
+# 哪种类型需要显示封面，与上一项相冲突，上一项为true则全开 List[str]
+analysis_display_image_list = ["video", "bangumi", "live", "article", "dynamic"]
 ```
 
 ## 安装
