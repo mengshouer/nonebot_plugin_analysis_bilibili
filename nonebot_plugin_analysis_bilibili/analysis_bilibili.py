@@ -320,7 +320,7 @@ async def dynamic_detail(url: str) -> Tuple[Union[Message, str], str]:
         if len(content) > 250:
             content = content[:250] + "......"
         images = (
-            item.get("pictures")
+            item.get("pictures", [])
             if analysis_display_image or "dynamic" in analysis_display_image_list
             else []
         )
@@ -328,7 +328,8 @@ async def dynamic_detail(url: str) -> Tuple[Union[Message, str], str]:
             images = [MessageSegment.image(i.get("img_src")) for i in images]
         else:
             pics = item.get("pictures_count")
-            content += f"\nPS：动态中包含{pics}张图片"
+            if pics:
+                content += f"\nPS：动态中包含{pics}张图片"
         origin = card.get("origin")
         if origin:
             jorigin = json.loads(origin)
