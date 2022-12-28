@@ -326,7 +326,6 @@ async def dynamic_detail(url: str) -> Tuple[Union[Message, str], str]:
         )
         if images:
             images = [MessageSegment.image(i.get("img_src")) for i in images]
-        else:
             pics = item.get("pictures_count")
             content += f"\nPS：动态中包含{pics}张图片"
         origin = card.get("origin")
@@ -338,7 +337,8 @@ async def dynamic_detail(url: str) -> Tuple[Union[Message, str], str]:
             else:
                 content += f"\n动态包含转发其他动态"
         msg = Message(content)
-        msg.extend(images)
+        if images:
+            msg.extend(images)
         msg.append(f"\n{vurl}")
         return msg, vurl
     except Exception as e:
