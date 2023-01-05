@@ -22,10 +22,10 @@ async def bili_keyword(group_id: Optional[int], text: str) -> Union[Message, str
         url, page, time_location = extract(text)
         # 如果是小程序就去搜索标题
         if not url:
-            title = re.search(r'"desc":("[^"哔哩]+")', text)
-            vurl = await search_bili_by_title(title[1])
-            if vurl:
-                url, page, time_location = extract(vurl)
+            if title := re.search(r'"desc":("[^"哔哩]+")', text):
+                vurl = await search_bili_by_title(title[1])
+                if vurl:
+                    url, page, time_location = extract(vurl)
 
         # 获取视频详细信息
         msg, vurl = "", ""
@@ -64,20 +64,31 @@ async def b23_extract(text: str) -> str:
 def extract(text: str) -> Tuple[str, Optional[str], Optional[str]]:
     try:
         url = ""
+        # 视频分p
         page = re.compile(r"([?&]|&amp;)p=\d+").search(text)
+        # 视频播放定位时间
         time = re.compile(r"([?&]|&amp;)t=\d+").search(text)
+        # 主站视频 av 号
         aid = re.compile(r"av\d+", re.I).search(text)
+        # 主站视频 bv 号
         bvid = re.compile(r"BV([A-Za-z0-9]{10})+", re.I).search(text)
+        # 番剧视频页
         epid = re.compile(r"ep\d+", re.I).search(text)
+        # 番剧剧集ssid(season_id)
         ssid = re.compile(r"ss\d+", re.I).search(text)
+        # 番剧详细页
         mdid = re.compile(r"md\d+", re.I).search(text)
+        # 直播间
         room_id = re.compile(r"live.bilibili.com/(blanc/|h5/)?(\d+)", re.I).search(text)
+        # 文章
         cvid = re.compile(
             r"(/read/(cv|mobile|native)(/|\?id=)?|^cv)(\d+)", re.I
         ).search(text)
+        # 动态
         dynamic_id_type2 = re.compile(
             r"(t|m).bilibili.com/(\d+)\?(.*?)(&|&amp;)type=2", re.I
         ).search(text)
+        # 动态
         dynamic_id = re.compile(r"(t|m).bilibili.com/(\d+)", re.I).search(text)
         if bvid:
             url = f"https://api.bilibili.com/x/web-interface/view?bvid={bvid[0]}"
@@ -142,8 +153,7 @@ async def video_detail(url: str, **kwargs) -> Tuple[Union[Message, str], str]:
             if analysis_display_image or "video" in analysis_display_image_list
             else ""
         )
-        page = kwargs.get("page")
-        if page:
+        if page := kwargs.get("page"):
             page = page[0].replace("&amp;", "&")
             p = int(page[3:])
             if p <= len(res["pages"]):
@@ -151,8 +161,7 @@ async def video_detail(url: str, **kwargs) -> Tuple[Union[Message, str], str]:
                 part = res["pages"][p - 1]["part"]
                 if part != res["title"]:
                     title += f"小标题：{part}\n"
-        time_location = kwargs.get("time_location")
-        if time_location:
+        if time_location := kwargs.get("time_location"):
             time_location = time_location[0].replace("&amp;", "&")[3:]
             if page:
                 vurl += f"&t={time_location}"
@@ -310,11 +319,9 @@ async def dynamic_detail(url: str) -> Tuple[Union[Message, str], str]:
         card = json.loads(res["card"])
         dynamic_id = res["desc"]["dynamic_id"]
         vurl = f"https://t.bilibili.com/{dynamic_id}\n"
-        item = card.get("item")
-        if not item:
+        if not (item := card.get("item")):
             return "动态不存在文字内容", vurl
-        content = item.get("description")
-        if not content:
+        if not (content := item.get("description")):
             content = item.get("content")
         content = content.replace("\r", "\n")
         if len(content) > 250:
@@ -330,8 +337,7 @@ async def dynamic_detail(url: str) -> Tuple[Union[Message, str], str]:
             pics = item.get("pictures_count")
             if pics:
                 content += f"\nPS：动态中包含{pics}张图片"
-        origin = card.get("origin")
-        if origin:
+        if origin := card.get("origin"):
             jorigin = json.loads(origin)
             short_link = jorigin.get("short_link")
             if short_link:
