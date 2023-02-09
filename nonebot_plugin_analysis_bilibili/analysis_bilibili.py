@@ -117,7 +117,7 @@ def extract(text: str) -> Tuple[str, Optional[str], Optional[str]]:
 
 
 async def search_bili_by_title(title: str) -> str:
-    search_url = f"https://api.bilibili.com/x/web-interface/search/all/v2?keyword={urllib.parse.quote(title)}"
+    search_url = f"https://api.bilibili.com/x/web-interface/wbi/search/all/v2?keyword={urllib.parse.quote(title)}"
 
     async with aiohttp.request(
         "GET", search_url, timeout=aiohttp.client.ClientTimeout(10)
