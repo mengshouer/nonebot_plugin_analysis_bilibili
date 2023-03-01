@@ -55,9 +55,7 @@ async def b23_extract(text: str) -> str:
         text.replace("\\", "")
     )
     url = f"https://{b23[0]}"
-    async with aiohttp.request(
-        "GET", url, timeout=aiohttp.client.ClientTimeout(10)
-    ) as resp:
+    async with aiohttp.request("GET", url) as resp:
         return str(resp.url)
 
 
@@ -117,12 +115,16 @@ def extract(text: str) -> Tuple[str, Optional[str], Optional[str]]:
 
 
 async def search_bili_by_title(title: str) -> str:
+    mainsite_url = "https://www.bilibili.com"
     search_url = f"https://api.bilibili.com/x/web-interface/wbi/search/all/v2?keyword={urllib.parse.quote(title)}"
 
-    async with aiohttp.request(
-        "GET", search_url, timeout=aiohttp.client.ClientTimeout(10)
-    ) as resp:
-        result = (await resp.json())["data"]["result"]
+    async with aiohttp.ClientSession() as session:
+        # set headers
+        async with session.get(mainsite_url) as resp:
+            assert resp.status == 200
+
+        async with session.get(search_url) as resp:
+            result = (await resp.json())["data"]["result"]
 
     for i in result:
         if i.get("result_type") != "video":
@@ -140,9 +142,7 @@ def handle_num(num: int) -> str:
 
 async def video_detail(url: str, **kwargs) -> Tuple[Union[Message, str], str]:
     try:
-        async with aiohttp.request(
-            "GET", url, timeout=aiohttp.client.ClientTimeout(10)
-        ) as resp:
+        async with aiohttp.request("GET", url) as resp:
             res = (await resp.json()).get("data")
             if not res:
                 return "解析到视频被删了/稿件不可见或审核中/权限不足", url
@@ -188,9 +188,7 @@ async def bangumi_detail(
     url: str, time_location: str = None
 ) -> Tuple[Union[Message, str], str]:
     try:
-        async with aiohttp.request(
-            "GET", url, timeout=aiohttp.client.ClientTimeout(10)
-        ) as resp:
+        async with aiohttp.request("GET", url) as resp:
             res = (await resp.json()).get("result")
             if not res:
                 return None, None
@@ -229,9 +227,7 @@ async def bangumi_detail(
 
 async def live_detail(url: str) -> Tuple[Union[Message, str], str]:
     try:
-        async with aiohttp.request(
-            "GET", url, timeout=aiohttp.client.ClientTimeout(10)
-        ) as resp:
+        async with aiohttp.request("GET", url) as resp:
             res = await resp.json()
             if res["code"] != 0:
                 return None, None
@@ -279,9 +275,7 @@ async def live_detail(url: str) -> Tuple[Union[Message, str], str]:
 
 async def article_detail(url: str, cvid: str) -> Tuple[Union[Message, str], str]:
     try:
-        async with aiohttp.request(
-            "GET", url, timeout=aiohttp.client.ClientTimeout(10)
-        ) as resp:
+        async with aiohttp.request("GET", url) as resp:
             res = (await resp.json()).get("data")
             if not res:
                 return None, None
@@ -310,9 +304,7 @@ async def article_detail(url: str, cvid: str) -> Tuple[Union[Message, str], str]
 
 async def dynamic_detail(url: str) -> Tuple[Union[Message, str], str]:
     try:
-        async with aiohttp.request(
-            "GET", url, timeout=aiohttp.client.ClientTimeout(10)
-        ) as resp:
+        async with aiohttp.request("GET", url) as resp:
             res = (await resp.json())["data"].get("card")
             if not res:
                 return None, None
