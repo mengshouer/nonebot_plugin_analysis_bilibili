@@ -44,17 +44,19 @@ analysis_display_image = true # 是否显示封面 true/false
 
 # 哪种类型需要显示封面，与上一项相冲突，上一项为true则全开 List[str]
 analysis_display_image_list = ["video", "bangumi", "live", "article", "dynamic"]
+
+analysis_trust_env = false # 是否使用环境变量或者当前系统正在使用中的代理设置 true/false
 ```
 
 ## 安装
 
-1. 使用 nb-cli 安装，不需要手动添加入口，更新使用 pip
+1. 使用 nb-cli 安装，不需要手动添加入口，更新使用 pip (推荐)
 
 ```
 nb plugin install nonebot_plugin_analysis_bilibili
 ```
 
-2. 使用 pip 安装和更新，初次安装需要手动添加入口
+2. 使用 pip 安装和更新，初次安装需要手动添加入口 （新版默认不带 bot.py 文件）
 
 ```
 pip install --upgrade nonebot_plugin_analysis_bilibili

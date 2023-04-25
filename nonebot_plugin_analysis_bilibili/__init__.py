@@ -1,4 +1,6 @@
 import re
+
+from aiohttp import ClientSession
 from nonebot import on_regex, logger
 from nonebot.adapters import Event
 from .analysis_bilibili import config, b23_extract, bili_keyword
@@ -11,6 +13,7 @@ analysis_bili = on_regex(
 
 blacklist = getattr(config, "analysis_blacklist", [])
 group_blacklist = getattr(config, "analysis_group_blacklist", [])
+trust_env = getattr(config, "analysis_trust_env", False)
 
 
 @analysis_bili.handle()
@@ -18,18 +21,21 @@ async def analysis_main(event: Event) -> None:
     text = str(event.message).strip()
     if blacklist and int(event.get_user_id()) in blacklist:
         return
-    if re.search(r"(b23.tv)|(bili(22|23|33|2233).cn)", text, re.I):
-        # 提前处理短链接，避免解析到其他的
-        text = await b23_extract(text)
-    if hasattr(event, "group_id"):
-        group_id = event.group_id
-    elif hasattr(event, "channel_id"):
-        group_id = event.channel_id
-    else:
-        group_id = None
-    if group_id in group_blacklist:
-        return
-    msg = await bili_keyword(group_id, text)
+
+    async with ClientSession(trust_env=trust_env) as session:
+        if re.search(r"(b23.tv)|(bili(22|23|33|2233).cn)", text, re.I):
+            # 提前处理短链接，避免解析到其他的
+            text = await b23_extract(text, session=session)
+        if hasattr(event, "group_id"):
+            group_id = event.group_id
+        elif hasattr(event, "channel_id"):
+            group_id = event.channel_id
+        else:
+            group_id = None
+        if group_id in group_blacklist:
+            return
+        msg = await bili_keyword(group_id, text, session=session)
+
     if msg:
         try:
             await analysis_bili.send(msg)

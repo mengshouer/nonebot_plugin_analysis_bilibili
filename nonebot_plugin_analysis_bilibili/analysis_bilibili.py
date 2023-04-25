@@ -4,7 +4,7 @@ import json
 from time import localtime, strftime
 from typing import Dict, Optional, Tuple, Union
 
-import aiohttp
+from aiohttp import ClientSession
 import nonebot
 from nonebot.adapters.onebot.v11 import Message, MessageSegment
 
@@ -16,46 +16,51 @@ analysis_display_image = getattr(config, "analysis_display_image", False)
 analysis_display_image_list = getattr(config, "analysis_display_image_list", [])
 
 
-async def bili_keyword(group_id: Optional[int], text: str) -> Union[Message, str]:
-    try:
-        # 提取url
-        url, page, time_location = extract(text)
-        # 如果是小程序就去搜索标题
-        if not url:
-            if title := re.search(r'"desc":("[^"哔哩]+")', text):
-                vurl = await search_bili_by_title(title[1])
-                if vurl:
-                    url, page, time_location = extract(vurl)
+async def bili_keyword(
+    group_id: Optional[int], text: str, session: ClientSession
+) -> Union[Message, str]:
+    # try:
+    # 提取url
+    url, page, time_location = extract(text)
+    # 如果是小程序就去搜索标题
+    if not url:
+        if title := re.search(r'"desc":("[^"哔哩]+")', text):
+            vurl = await search_bili_by_title(title[1], session)
+            if vurl:
+                url, page, time_location = extract(vurl)
 
-        # 获取视频详细信息
-        msg, vurl = "", ""
-        if "view?" in url:
-            msg, vurl = await video_detail(url, page=page, time_location=time_location)
-        elif "bangumi" in url:
-            msg, vurl = await bangumi_detail(url, time_location)
-        elif "xlive" in url:
-            msg, vurl = await live_detail(url)
-        elif "article" in url:
-            msg, vurl = await article_detail(url, page)
-        elif "dynamic" in url:
-            msg, vurl = await dynamic_detail(url)
+    # 获取视频详细信息
+    msg, vurl = "", ""
+    if "view?" in url:
+        msg, vurl = await video_detail(
+            url, page=page, time_location=time_location, session=session
+        )
+    elif "bangumi" in url:
+        msg, vurl = await bangumi_detail(url, time_location, session)
+    elif "xlive" in url:
+        msg, vurl = await live_detail(url, session)
+    elif "article" in url:
+        msg, vurl = await article_detail(url, page, session)
+    elif "dynamic" in url:
+        msg, vurl = await dynamic_detail(url, session)
 
-        # 避免多个机器人解析重复推送
-        if group_id:
-            if group_id in analysis_stat and analysis_stat[group_id] == vurl:
-                return ""
-            analysis_stat[group_id] = vurl
-    except Exception as e:
-        msg = "bili_keyword Error: {}".format(type(e))
+    # 避免多个机器人解析重复推送
+    if group_id:
+        if group_id in analysis_stat and analysis_stat[group_id] == vurl:
+            return ""
+        analysis_stat[group_id] = vurl
+    # except Exception as e:
+    #     msg = "bili_keyword Error: {}".format(type(e))
     return msg
 
 
-async def b23_extract(text: str) -> str:
+async def b23_extract(text: str, session: ClientSession) -> str:
     b23 = re.compile(r"b23.tv/(\w+)|(bili(22|23|33|2233).cn)/(\w+)", re.I).search(
         text.replace("\\", "")
     )
     url = f"https://{b23[0]}"
-    async with aiohttp.request("GET", url) as resp:
+
+    async with session.get(url) as resp:
         return str(resp.url)
 
 
@@ -114,17 +119,16 @@ def extract(text: str) -> Tuple[str, Optional[str], Optional[str]]:
         return "", None, None
 
 
-async def search_bili_by_title(title: str) -> str:
+async def search_bili_by_title(title: str, session: ClientSession) -> str:
     mainsite_url = "https://www.bilibili.com"
     search_url = f"https://api.bilibili.com/x/web-interface/wbi/search/all/v2?keyword={urllib.parse.quote(title)}"
 
-    async with aiohttp.ClientSession() as session:
-        # set headers
-        async with session.get(mainsite_url) as resp:
-            assert resp.status == 200
+    # set headers
+    async with session.get(mainsite_url) as resp:
+        assert resp.status == 200
 
-        async with session.get(search_url) as resp:
-            result = (await resp.json())["data"]["result"]
+    async with session.get(search_url) as resp:
+        result = (await resp.json())["data"]["result"]
 
     for i in result:
         if i.get("result_type") != "video":
@@ -140,9 +144,11 @@ def handle_num(num: int) -> str:
     return num
 
 
-async def video_detail(url: str, **kwargs) -> Tuple[Union[Message, str], str]:
+async def video_detail(
+    url: str, session: ClientSession, **kwargs
+) -> Tuple[Union[Message, str], str]:
     try:
-        async with aiohttp.request("GET", url) as resp:
+        async with session.get(url) as resp:
             res = (await resp.json()).get("data")
             if not res:
                 return "解析到视频被删了/稿件不可见或审核中/权限不足", url
@@ -185,10 +191,10 @@ async def video_detail(url: str, **kwargs) -> Tuple[Union[Message, str], str]:
 
 
 async def bangumi_detail(
-    url: str, time_location: str = None
+    url: str, time_location: str, session: ClientSession
 ) -> Tuple[Union[Message, str], str]:
     try:
-        async with aiohttp.request("GET", url) as resp:
+        async with session.get(url) as resp:
             res = (await resp.json()).get("result")
             if not res:
                 return None, None
@@ -225,9 +231,11 @@ async def bangumi_detail(
         return msg, None
 
 
-async def live_detail(url: str) -> Tuple[Union[Message, str], str]:
+async def live_detail(
+    url: str, session: ClientSession
+) -> Tuple[Union[Message, str], str]:
     try:
-        async with aiohttp.request("GET", url) as resp:
+        async with session.get(url) as resp:
             res = await resp.json()
             if res["code"] != 0:
                 return None, None
@@ -273,9 +281,11 @@ async def live_detail(url: str) -> Tuple[Union[Message, str], str]:
         return msg, None
 
 
-async def article_detail(url: str, cvid: str) -> Tuple[Union[Message, str], str]:
+async def article_detail(
+    url: str, cvid: str, session: ClientSession
+) -> Tuple[Union[Message, str], str]:
     try:
-        async with aiohttp.request("GET", url) as resp:
+        async with session.get(url) as resp:
             res = (await resp.json()).get("data")
             if not res:
                 return None, None
@@ -302,9 +312,11 @@ async def article_detail(url: str, cvid: str) -> Tuple[Union[Message, str], str]
         return msg, None
 
 
-async def dynamic_detail(url: str) -> Tuple[Union[Message, str], str]:
+async def dynamic_detail(
+    url: str, session: ClientSession
+) -> Tuple[Union[Message, str], str]:
     try:
-        async with aiohttp.request("GET", url) as resp:
+        async with session.get(url) as resp:
             res = (await resp.json())["data"].get("card")
             if not res:
                 return None, None
