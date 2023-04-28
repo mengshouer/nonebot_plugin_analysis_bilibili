@@ -11,6 +11,9 @@ analysis_bili = on_regex(
     flags=re.I,
 )
 
+headers = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36 Edg/112.0.1722.58"
+}
 blacklist = getattr(config, "analysis_blacklist", [])
 group_blacklist = getattr(config, "analysis_group_blacklist", [])
 trust_env = getattr(config, "analysis_trust_env", False)
@@ -22,16 +25,19 @@ async def analysis_main(event: Event) -> None:
     if blacklist and int(event.get_user_id()) in blacklist:
         return
 
-    async with ClientSession(trust_env=trust_env) as session:
+    async with ClientSession(trust_env=trust_env, headers=headers) as session:
         if re.search(r"(b23.tv)|(bili(22|23|33|2233).cn)", text, re.I):
             # 提前处理短链接，避免解析到其他的
             text = await b23_extract(text, session=session)
-        if hasattr(event, "group_id"):
-            group_id = event.group_id
-        elif hasattr(event, "channel_id"):
-            group_id = event.channel_id
-        else:
-            group_id = None
+
+        group_id = (
+            event.group_id
+            if hasattr(event, "group_id")
+            else event.channel_id
+            if hasattr(event, "channel_id")
+            else None
+        )
+
         if group_id in group_blacklist:
             return
         msg = await bili_keyword(group_id, text, session=session)

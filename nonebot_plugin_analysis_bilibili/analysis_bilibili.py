@@ -19,38 +19,38 @@ analysis_display_image_list = getattr(config, "analysis_display_image_list", [])
 async def bili_keyword(
     group_id: Optional[int], text: str, session: ClientSession
 ) -> Union[Message, str]:
-    # try:
-    # 提取url
-    url, page, time_location = extract(text)
-    # 如果是小程序就去搜索标题
-    if not url:
-        if title := re.search(r'"desc":("[^"哔哩]+")', text):
-            vurl = await search_bili_by_title(title[1], session)
-            if vurl:
-                url, page, time_location = extract(vurl)
+    try:
+        # 提取url
+        url, page, time_location = extract(text)
+        # 如果是小程序就去搜索标题
+        if not url:
+            if title := re.search(r'"desc":("[^"哔哩]+")', text):
+                vurl = await search_bili_by_title(title[1], session)
+                if vurl:
+                    url, page, time_location = extract(vurl)
 
-    # 获取视频详细信息
-    msg, vurl = "", ""
-    if "view?" in url:
-        msg, vurl = await video_detail(
-            url, page=page, time_location=time_location, session=session
-        )
-    elif "bangumi" in url:
-        msg, vurl = await bangumi_detail(url, time_location, session)
-    elif "xlive" in url:
-        msg, vurl = await live_detail(url, session)
-    elif "article" in url:
-        msg, vurl = await article_detail(url, page, session)
-    elif "dynamic" in url:
-        msg, vurl = await dynamic_detail(url, session)
+        # 获取视频详细信息
+        msg, vurl = "", ""
+        if "view?" in url:
+            msg, vurl = await video_detail(
+                url, page=page, time_location=time_location, session=session
+            )
+        elif "bangumi" in url:
+            msg, vurl = await bangumi_detail(url, time_location, session)
+        elif "xlive" in url:
+            msg, vurl = await live_detail(url, session)
+        elif "article" in url:
+            msg, vurl = await article_detail(url, page, session)
+        elif "dynamic" in url:
+            msg, vurl = await dynamic_detail(url, session)
 
-    # 避免多个机器人解析重复推送
-    if group_id:
-        if group_id in analysis_stat and analysis_stat[group_id] == vurl:
-            return ""
-        analysis_stat[group_id] = vurl
-    # except Exception as e:
-    #     msg = "bili_keyword Error: {}".format(type(e))
+        # 避免多个机器人解析重复推送
+        if group_id:
+            if group_id in analysis_stat and analysis_stat[group_id] == vurl:
+                return ""
+            analysis_stat[group_id] = vurl
+    except Exception as e:
+        msg = "bili_keyword Error: {}".format(type(e))
     return msg
 
 
