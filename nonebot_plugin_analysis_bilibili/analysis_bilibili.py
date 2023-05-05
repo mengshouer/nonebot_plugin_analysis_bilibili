@@ -1,12 +1,11 @@
 import re
 import urllib.parse
 import json
-from time import localtime, strftime
-from typing import Dict, Optional, Tuple, Union
-
-from aiohttp import ClientSession
 import nonebot
-from nonebot.adapters.onebot.v11 import Message, MessageSegment
+
+from time import localtime, strftime
+from typing import Dict, List, Optional, Tuple, Union
+from aiohttp import ClientSession
 
 # group_id : last_vurl
 analysis_stat: Dict[int, str] = {}
@@ -18,7 +17,7 @@ analysis_display_image_list = getattr(config, "analysis_display_image_list", [])
 
 async def bili_keyword(
     group_id: Optional[int], text: str, session: ClientSession
-) -> Union[Message, str]:
+) -> Union[List[Union[List[str], str]], str]:
     try:
         # 提取url
         url, page, time_location = extract(text)
@@ -146,7 +145,7 @@ def handle_num(num: int) -> str:
 
 async def video_detail(
     url: str, session: ClientSession, **kwargs
-) -> Tuple[Union[Message, str], str]:
+) -> Tuple[List[str], str]:
     try:
         async with session.get(url) as resp:
             res = (await resp.json()).get("data")
@@ -155,7 +154,7 @@ async def video_detail(
         vurl = f"https://www.bilibili.com/video/av{res['aid']}"
         title = f"\n标题：{res['title']}\n"
         cover = (
-            MessageSegment.image(res["pic"])
+            res["pic"]
             if analysis_display_image or "video" in analysis_display_image_list
             else ""
         )
@@ -183,7 +182,7 @@ async def video_detail(
         desc_list = desc.split("\n")
         if len(desc_list) > 4:
             desc = desc_list[0] + "\n" + desc_list[1] + "\n" + desc_list[2] + "……"
-        msg = Message([cover, vurl, title, tname, stat, desc])
+        msg = [cover, vurl, title, tname, stat, desc]
         return msg, vurl
     except Exception as e:
         msg = "视频解析出错--Error: {}".format(type(e))
@@ -192,14 +191,14 @@ async def video_detail(
 
 async def bangumi_detail(
     url: str, time_location: str, session: ClientSession
-) -> Tuple[Union[Message, str], str]:
+) -> Tuple[List[str], str]:
     try:
         async with session.get(url) as resp:
             res = (await resp.json()).get("result")
             if not res:
                 return None, None
         cover = (
-            MessageSegment.image(res["cover"])
+            res["cover"]
             if analysis_display_image or "bangumi" in analysis_display_image_list
             else ""
         )
@@ -223,7 +222,7 @@ async def bangumi_detail(
         if time_location:
             time_location = time_location[0].replace("&amp;", "&")[3:]
             vurl += f"?t={time_location}"
-        msg = Message([cover, f"{vurl}\n", title, index_title, desc, style, evaluate])
+        msg = [cover, f"{vurl}\n", title, index_title, desc, style, evaluate]
         return msg, vurl
     except Exception as e:
         msg = "番剧解析出错--Error: {}".format(type(e))
@@ -231,9 +230,7 @@ async def bangumi_detail(
         return msg, None
 
 
-async def live_detail(
-    url: str, session: ClientSession
-) -> Tuple[Union[Message, str], str]:
+async def live_detail(url: str, session: ClientSession) -> Tuple[List[str], str]:
     try:
         async with session.get(url) as resp:
             res = await resp.json()
@@ -244,7 +241,7 @@ async def live_detail(
         room_id = res["room_info"]["room_id"]
         title = res["room_info"]["title"]
         cover = (
-            MessageSegment.image(res["room_info"]["cover"])
+            res["room_info"]["cover"]
             if analysis_display_image or "live" in analysis_display_image_list
             else ""
         )
@@ -274,7 +271,7 @@ async def live_detail(
             player = f"独立播放器：https://www.bilibili.com/blackboard/live/live-activity-player.html?enterTheRoom=0&cid={room_id}"
         else:
             player = ""
-        msg = Message([cover, vurl, title, up, watch, tags, player])
+        msg = [cover, vurl, title, up, watch, tags, player]
         return msg, vurl
     except Exception as e:
         msg = "直播间解析出错--Error: {}".format(type(e))
@@ -283,14 +280,14 @@ async def live_detail(
 
 async def article_detail(
     url: str, cvid: str, session: ClientSession
-) -> Tuple[Union[Message, str], str]:
+) -> Tuple[List[Union[List[str], str]], str]:
     try:
         async with session.get(url) as resp:
             res = (await resp.json()).get("data")
             if not res:
                 return None, None
         images = (
-            [MessageSegment.image(i) for i in res["origin_image_urls"]]
+            res["origin_image_urls"]
             if analysis_display_image or "article" in analysis_display_image_list
             else []
         )
@@ -304,8 +301,7 @@ async def article_detail(
         like = f"点赞数：{handle_num(res['stats']['like'])} "
         dislike = f"不喜欢数：{handle_num(res['stats']['dislike'])}"
         desc = view + favorite + coin + "\n" + share + like + dislike + "\n"
-        msg = Message(images)
-        msg.extend([title, up, desc, vurl])
+        msg = [images, title, up, desc, vurl]
         return msg, vurl
     except Exception as e:
         msg = "专栏解析出错--Error: {}".format(type(e))
@@ -314,7 +310,7 @@ async def article_detail(
 
 async def dynamic_detail(
     url: str, session: ClientSession
-) -> Tuple[Union[Message, str], str]:
+) -> Tuple[List[Union[List[str], str]], str]:
     try:
         async with session.get(url) as resp:
             res = (await resp.json())["data"].get("card")
@@ -331,13 +327,11 @@ async def dynamic_detail(
         if len(content) > 250:
             content = content[:250] + "......"
         images = (
-            item.get("pictures", [])
+            [i.get("img_src") for i in item.get("pictures", [])]
             if analysis_display_image or "dynamic" in analysis_display_image_list
             else []
         )
-        if images:
-            images = [MessageSegment.image(i.get("img_src")) for i in images]
-        else:
+        if not images:
             pics = item.get("pictures_count")
             if pics:
                 content += f"\nPS：动态中包含{pics}张图片"
@@ -348,9 +342,7 @@ async def dynamic_detail(
                 content += f"\n动态包含转发视频{short_link}"
             else:
                 content += f"\n动态包含转发其他动态"
-        msg = Message(content)
-        msg.extend(images)
-        msg.append(f"\n{vurl}")
+        msg = [images, content, f"\n动态链接：{vurl}"]
         return msg, vurl
     except Exception as e:
         msg = "动态解析出错--Error: {}".format(type(e))
