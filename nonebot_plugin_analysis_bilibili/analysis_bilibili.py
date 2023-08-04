@@ -7,6 +7,9 @@ from time import localtime, strftime
 from typing import Dict, List, Optional, Tuple, Union
 from aiohttp import ClientSession
 
+from .wbi import get_query
+
+
 # group_id : last_vurl
 analysis_stat: Dict[int, str] = {}
 
@@ -119,12 +122,8 @@ def extract(text: str) -> Tuple[str, Optional[str], Optional[str]]:
 
 
 async def search_bili_by_title(title: str, session: ClientSession) -> str:
-    mainsite_url = "https://www.bilibili.com"
-    search_url = f"https://api.bilibili.com/x/web-interface/wbi/search/all/v2?keyword={urllib.parse.quote(title)}"
-
-    # set headers
-    async with session.get(mainsite_url) as resp:
-        assert resp.status == 200
+    query = await get_query(keyword=urllib.parse.quote(title))
+    search_url = f"https://api.bilibili.com/x/web-interface/wbi/search/all/v2?{query}"
 
     async with session.get(search_url) as resp:
         result = (await resp.json())["data"]["result"]
