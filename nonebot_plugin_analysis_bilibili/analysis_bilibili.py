@@ -7,6 +7,9 @@ from time import localtime, strftime
 from typing import Dict, List, Optional, Tuple, Union
 from aiohttp import ClientSession
 
+from .wbi import get_query
+
+
 # group_id : last_vurl
 analysis_stat: Dict[int, str] = {}
 
@@ -119,17 +122,22 @@ def extract(text: str) -> Tuple[str, Optional[str], Optional[str]]:
 
 
 async def search_bili_by_title(title: str, session: ClientSession) -> str:
-    mainsite_url = "https://www.bilibili.com"
-    search_url = f"https://api.bilibili.com/x/web-interface/wbi/search/all/v2?keyword={urllib.parse.quote(title)}"
-
     # set headers
+    mainsite_url = "https://www.bilibili.com"
     async with session.get(mainsite_url) as resp:
         assert resp.status == 200
 
-    async with session.get(search_url) as resp:
-        result = (await resp.json())["data"]["result"]
+    query = await get_query({"keyword": title})
+    search_url = f"https://api.bilibili.com/x/web-interface/wbi/search/all/v2?{query}"
 
-    for i in result:
+    async with session.get(search_url) as resp:
+        result = await resp.json()
+
+    if result["code"] == -412:
+        nonebot.logger.warning(f"analysis_bilibili: {result}")
+        return
+
+    for i in result["data"]["result"]:
         if i.get("result_type") != "video":
             continue
         # 只返回第一个结果
