@@ -4,6 +4,8 @@ import urllib.parse
 import time
 from aiohttp import ClientSession
 
+# doc: https://github.com/SocialSisterYi/bilibili-API-collect/blob/master/docs/misc/sign/wbi.md
+
 # fmt: off
 mixinKeyEncTab = [
     46, 47, 18, 2, 53, 8, 23, 32, 15, 50, 10, 31, 58, 3, 45, 35, 27, 43, 5, 49,
@@ -48,11 +50,11 @@ async def getWbiKeys():
     return img_key, sub_key
 
 
-async def get_query(**parameters: dict):
+async def get_query(params: dict):
     """
     获取签名后的查询参数
     """
     img_key, sub_key = await getWbiKeys()
-    signed_params = encWbi(params=parameters, img_key=img_key, sub_key=sub_key)
+    signed_params = encWbi(params=params, img_key=img_key, sub_key=sub_key)
     query = urllib.parse.urlencode(signed_params)
     return query

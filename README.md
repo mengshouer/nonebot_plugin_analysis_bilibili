@@ -42,6 +42,7 @@ analysis_blacklist = [123456789] # 不解析里面填写的QQ号发的链接 Lis
 analysis_group_blacklist = [123456789] # 不解析里面填写的QQ群号发的链接 List[int]
 analysis_desc_blacklist = [123456789] # 里面填写的群号，发送的解析内容不包含简介 List[int]
 analysis_display_image = true # 是否显示封面 true/false
+analysis_enable_search = false # 是否开启搜视频功能 true/false  example: "搜视频 123456"
 
 # 哪种类型需要显示封面，与上一项相冲突，上一项为true则全开 List[str]
 analysis_display_image_list = ["video", "bangumi", "live", "article", "dynamic"]

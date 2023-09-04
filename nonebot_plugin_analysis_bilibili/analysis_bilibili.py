@@ -122,13 +122,22 @@ def extract(text: str) -> Tuple[str, Optional[str], Optional[str]]:
 
 
 async def search_bili_by_title(title: str, session: ClientSession) -> str:
-    query = await get_query(keyword=urllib.parse.quote(title))
+    # set headers
+    mainsite_url = "https://www.bilibili.com"
+    async with session.get(mainsite_url) as resp:
+        assert resp.status == 200
+
+    query = await get_query({"keyword": title})
     search_url = f"https://api.bilibili.com/x/web-interface/wbi/search/all/v2?{query}"
 
     async with session.get(search_url) as resp:
-        result = (await resp.json())["data"]["result"]
+        result = await resp.json()
 
-    for i in result:
+    if result["code"] == -412:
+        nonebot.logger.warning(f"analysis_bilibili: {result}")
+        return
+
+    for i in result["data"]["result"]:
         if i.get("result_type") != "video":
             continue
         # 只返回第一个结果
