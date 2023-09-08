@@ -53,7 +53,7 @@ async def send_msg(msg: List[Union[List[str], str]]) -> None:
     try:
         if not msg[0]:
             # 解析不包含图片
-            await analysis_bili.send("\n".join(msg[1:]))
+            await analysis_bili.send("".join(msg[1:]))
             return
         else:
             try:
