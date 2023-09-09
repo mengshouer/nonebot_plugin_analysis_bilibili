@@ -1,5 +1,4 @@
 import re
-import urllib.parse
 import json
 import nonebot
 
@@ -16,6 +15,17 @@ analysis_stat: Dict[int, str] = {}
 config = nonebot.get_driver().config
 analysis_display_image = getattr(config, "analysis_display_image", False)
 analysis_display_image_list = getattr(config, "analysis_display_image_list", [])
+images_size = getattr(config, "analysis_images_size", "")
+cover_images_size = getattr(config, "analysis_cover_images_size", "")
+
+
+def resize_image(src: str, is_cover=False) -> str:
+    img_type = src[-3:]
+    if cover_images_size and is_cover:
+        return f"{src}@{cover_images_size}.{img_type}"
+    if images_size:
+        return f"{src}@{images_size}.{img_type}"
+    return src
 
 
 async def bili_keyword(
@@ -113,9 +123,9 @@ def extract(text: str) -> Tuple[str, Optional[str], Optional[str]]:
             page = cvid[4]
             url = f"https://api.bilibili.com/x/article/viewinfo?id={page}&mobi_app=pc&from=web"
         elif dynamic_id_type2:
-            url = f"https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/get_dynamic_detail?rid={dynamic_id_type2[2]}&type=2"
+            url = f"https://api.bilibili.com/x/polymer/web-dynamic/v1/detail?rid={dynamic_id_type2[2]}&type=2"
         elif dynamic_id:
-            url = f"https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/get_dynamic_detail?dynamic_id={dynamic_id[2]}"
+            url = f"https://api.bilibili.com/x/polymer/web-dynamic/v1/detail?id={dynamic_id[2]}"
         return url, page, time
     except Exception:
         return "", None, None
@@ -161,11 +171,12 @@ async def video_detail(
                 return "解析到视频被删了/稿件不可见或审核中/权限不足", url
         vurl = f"https://www.bilibili.com/video/av{res['aid']}"
         title = f"\n标题：{res['title']}\n"
-        cover = (
-            res["pic"]
-            if analysis_display_image or "video" in analysis_display_image_list
-            else ""
-        )
+
+        has_image = False
+        if analysis_display_image or "video" in analysis_display_image_list:
+            has_image = True
+
+        cover = resize_image(res["pic"]) if has_image else ""
         if page := kwargs.get("page"):
             page = page[0].replace("&amp;", "&")
             p = int(page[3:])
@@ -205,11 +216,12 @@ async def bangumi_detail(
             res = (await resp.json()).get("result")
             if not res:
                 return None, None
-        cover = (
-            res["cover"]
-            if analysis_display_image or "bangumi" in analysis_display_image_list
-            else ""
-        )
+
+        has_image = False
+        if analysis_display_image or "bangumi" in analysis_display_image_list:
+            has_image = True
+
+        cover = resize_image(res["cover"], is_cover=True) if has_image else ""
         title = f"番剧：{res['title']}\n"
         desc = f"{res['newest_ep']['desc']}\n"
         index_title = ""
@@ -248,10 +260,13 @@ async def live_detail(url: str, session: ClientSession) -> Tuple[List[str], str]
         uname = res["anchor_info"]["base_info"]["uname"]
         room_id = res["room_info"]["room_id"]
         title = res["room_info"]["title"]
+
+        has_image = False
+        if analysis_display_image or "live" in analysis_display_image_list:
+            has_image = True
+
         cover = (
-            res["room_info"]["cover"]
-            if analysis_display_image or "live" in analysis_display_image_list
-            else ""
+            resize_image(res["room_info"]["cover"], is_cover=True) if has_image else ""
         )
         live_status = res["room_info"]["live_status"]
         lock_status = res["room_info"]["lock_status"]
@@ -294,10 +309,13 @@ async def article_detail(
             res = (await resp.json()).get("data")
             if not res:
                 return None, None
+
+        has_image = False
+        if analysis_display_image or "article" in analysis_display_image_list:
+            has_image = True
+
         images = (
-            res["origin_image_urls"]
-            if analysis_display_image or "article" in analysis_display_image_list
-            else []
+            [resize_image(i) for i in res["origin_image_urls"]] if has_image else []
         )
         vurl = f"https://www.bilibili.com/read/cv{cvid}"
         title = f"标题：{res['title']}\n"
@@ -321,36 +339,77 @@ async def dynamic_detail(
 ) -> Tuple[List[Union[List[str], str]], str]:
     try:
         async with session.get(url) as resp:
-            res = (await resp.json())["data"].get("card")
-            if not res:
+            res = await resp.json()
+            if res["code"] != 0:
                 return None, None
-        card = json.loads(res["card"])
-        dynamic_id = res["desc"]["dynamic_id"]
+        res = res.get("data").get("item")
+        dynamic_id = res["id_str"]
         vurl = f"https://t.bilibili.com/{dynamic_id}\n"
-        if not (item := card.get("item")):
-            return "动态不存在文字内容", vurl
-        if not (content := item.get("description")):
-            content = item.get("content")
-        content = content.replace("\r", "\n")
-        if len(content) > 250:
-            content = content[:250] + "......"
-        images = (
-            [i.get("img_src") for i in item.get("pictures", [])]
-            if analysis_display_image or "dynamic" in analysis_display_image_list
-            else []
-        )
-        if not images:
-            pics = item.get("pictures_count")
-            if pics:
-                content += f"\nPS：动态中包含{pics}张图片"
-        if origin := card.get("origin"):
-            jorigin = json.loads(origin)
-            short_link = jorigin.get("short_link")
-            if short_link:
-                content += f"\n动态包含转发视频{short_link}"
-            else:
-                content += f"\n动态包含转发其他动态"
-        msg = [images, content, f"\n动态链接：{vurl}"]
+
+        # 动态内容
+        module_dynamic = res["modules"]["module_dynamic"]
+        module_type = res["type"]
+
+        # 文字信息
+        desc = module_dynamic["desc"]
+        content = desc.get("text").replace("\r", "\n").replace("\n\n", "\n")
+
+        has_image = False
+        if analysis_display_image or "dynamic" in analysis_display_image_list:
+            has_image = True
+
+        # 额外信息(会员购)
+        additional_msg = []
+        additional = module_dynamic.get("additional")
+        if isinstance(additional, dict):
+            additional_type = additional.get("type")
+            if additional_type == "ADDITIONAL_TYPE_GOODS":
+                items = additional.get("goods", {}).get("items", [])
+                for item in items:
+                    additional_msg.append(f"{item.get('name')}（{item.get('price')}）\n")
+
+        # DRAW图片/ARCHIVE转发视频/null纯文字
+        draws = []
+        archive_cover = ""
+        archive_msg = ""
+        split = "\n----------------------------------------\n"
+        major = module_dynamic["major"]
+        if isinstance(major, dict):
+            if module_type == "DYNAMIC_TYPE_DRAW":
+                split = split if additional_msg else ""
+                if has_image:
+                    draws = [
+                        resize_image(i.get("src"))
+                        for i in major.get("draw").get("items", [])
+                    ]
+                else:
+                    items_len = len(major.get("draw").get("items", []))
+                    content += f"\nPS：动态中包含{items_len}张图片"
+
+            elif module_type == "DYNAMIC_TYPE_AV":
+                jump_url = major.get("archive").get("jump_url")
+                archive_cover = (
+                    resize_image(major.get("archive").get("cover")) if has_image else ""
+                )
+                archive_msg += f"转发视频：https:{jump_url}\n"
+                archive_msg += f"简介：{major.get('archive').get('desc')}"
+
+        elif module_type == "DYNAMIC_TYPE_FORWARD":
+            desc = module_dynamic["desc"]
+            orig_id = res.get("orig").get("id_str")
+            archive_msg += f"转发动态：https://t.bilibili.com/{orig_id}\n"
+        else:
+            split = ""
+
+        msg = [
+            content,
+            draws,
+            split,
+            archive_cover,
+            archive_msg,
+            additional_msg,
+            f"\n动态链接：{vurl}",
+        ]
         return msg, vurl
     except Exception as e:
         msg = "动态解析出错--Error: {}".format(type(e))
