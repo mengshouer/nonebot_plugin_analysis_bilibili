@@ -177,6 +177,7 @@ async def video_detail(
             has_image = True
 
         cover = resize_image(res["pic"]) if has_image else ""
+        vurl = "\n" + vurl if cover else vurl
         if page := kwargs.get("page"):
             page = page[0].replace("&amp;", "&")
             p = int(page[3:])
@@ -242,6 +243,7 @@ async def bangumi_detail(
         if time_location:
             time_location = time_location[0].replace("&amp;", "&")[3:]
             vurl += f"?t={time_location}"
+        vurl = "\n" + vurl if cover else vurl
         msg = [cover, f"{vurl}\n", title, index_title, desc, style, evaluate]
         return msg, vurl
     except Exception as e:
@@ -294,6 +296,7 @@ async def live_detail(url: str, session: ClientSession) -> Tuple[List[str], str]
             player = f"独立播放器：https://www.bilibili.com/blackboard/live/live-activity-player.html?enterTheRoom=0&cid={room_id}"
         else:
             player = ""
+        vurl = "\n" + vurl if cover else vurl
         msg = [cover, vurl, title, up, watch, tags, player]
         return msg, vurl
     except Exception as e:
