@@ -69,7 +69,7 @@ def flatten(container):
             yield i
 
 
-def format_msg(msg_list: List[str | List[str]]):
+def format_msg(msg_list: List[Union[List[str], str]]):
     flatten_msg_list = list(flatten(msg_list))
     try:
         from nonebot.adapters.onebot.v11 import Message, MessageSegment
