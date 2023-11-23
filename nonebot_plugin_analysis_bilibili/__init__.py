@@ -9,9 +9,10 @@ from .analysis_bilibili import config, b23_extract, bili_keyword, search_bili_by
 headers = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36 Edg/116.0.1938.69"
 }
-blacklist = getattr(config, "analysis_blacklist", [])
-group_blacklist = getattr(config, "analysis_group_blacklist", [])
-desc_blacklist = getattr(config, "analysis_desc_blacklist", [])
+
+blacklist = [str(i) for i in getattr(config, "analysis_blacklist", [])]
+group_blacklist = [str(i) for i in getattr(config, "analysis_group_blacklist", [])]
+desc_blacklist = [str(i) for i in getattr(config, "analysis_desc_blacklist", [])]
 trust_env = getattr(config, "analysis_trust_env", False)
 enable_search = getattr(config, "analysis_enable_search", False)
 
@@ -21,7 +22,7 @@ async def is_enable_search() -> bool:
 
 
 async def is_normal(event: Event) -> bool:
-    if blacklist and int(event.get_user_id()) in blacklist:
+    if blacklist and event.get_user_id() in blacklist:
         return False
 
     group_id = (
