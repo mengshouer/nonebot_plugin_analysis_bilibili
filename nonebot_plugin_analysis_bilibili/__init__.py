@@ -5,7 +5,7 @@ from nonebot import on_regex, logger
 from nonebot.adapters import Event
 from nonebot.rule import Rule
 from .analysis_bilibili import config, b23_extract, bili_keyword, search_bili_by_title
-from nonebot_plugin_saa import Image, MessageFactory, MessageSegmentFactory, Text
+from nonebot_plugin_saa import MessageFactory, MessageSegmentFactory, Text, Image
 
 headers = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36 Edg/116.0.1938.69"
@@ -71,8 +71,10 @@ def flatten(container):
             yield i
 
 
-def format_msg(msg_list: List[Union[List[str], str]]):
+def format_msg(msg_list: List[Union[List[str], str]], is_plain_text: bool = False):
     flatten_msg_list = list(flatten(msg_list))
+    if is_plain_text:
+        return "".join([i for i in flatten_msg_list if not is_image(i)])
 
     msg: List[MessageSegmentFactory] = []
 
@@ -92,8 +94,9 @@ async def send_msg(msg_list: List[Union[List[str], str]]) -> None:
         return
 
     try:
-        factory = MessageFactory(format_msg(msg_list))
-        await (factory.send if interact else factory.finish)(reply=False)
+        await MessageFactory(format_msg(msg_list)).send()
+    except RuntimeError:
+        await analysis_bili.send(format_msg(msg_list, is_plain_text=True))
     except Exception as e:
         logger.exception(e)
         logger.warning(f"{msg_list}\n此次解析的内容可能被风控！")
