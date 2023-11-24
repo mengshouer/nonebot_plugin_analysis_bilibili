@@ -5,6 +5,7 @@ from nonebot import on_regex, logger
 from nonebot.adapters import Event
 from nonebot.rule import Rule
 from .analysis_bilibili import config, b23_extract, bili_keyword, search_bili_by_title
+from nonebot_plugin_saa import Image, MessageFactory, MessageSegmentFactory, Text
 
 headers = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36 Edg/116.0.1938.69"
@@ -72,20 +73,16 @@ def flatten(container):
 
 def format_msg(msg_list: List[Union[List[str], str]]):
     flatten_msg_list = list(flatten(msg_list))
-    try:
-        from nonebot.adapters.onebot.v11 import Message, MessageSegment
-    except ImportError:
-        return "".join([i for i in flatten_msg_list if not is_image(i)])
 
-    msg = Message()
+    msg: List[MessageSegmentFactory] = []
 
     for i in flatten_msg_list:
         if not i:
             continue
         elif is_image(i):
-            msg.append(MessageSegment.image(i))
+            msg.append(Image(i))
         else:
-            msg.append(MessageSegment.text(i))
+            msg.append(Text(i))
     return msg
 
 
@@ -95,7 +92,8 @@ async def send_msg(msg_list: List[Union[List[str], str]]) -> None:
         return
 
     try:
-        await analysis_bili.send(format_msg(msg_list))
+        factory = MessageFactory(format_msg(msg_list))
+        await (factory.send if interact else factory.finish)(reply=False)
     except Exception as e:
         logger.exception(e)
         logger.warning(f"{msg_list}\n此次解析的内容可能被风控！")

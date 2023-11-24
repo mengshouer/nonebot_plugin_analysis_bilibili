@@ -14,6 +14,7 @@ python = "^3.8"
 aiohttp = "^3.7"
 nonebot2 = "^2.0.0rc4"
 nonebot-adapter-onebot = { version = "^2.0.0-beta.1", optional = true }
+nonebot-plugin-send-anything-anywhere >= 0.3.2
 
 [tool.poetry.dev-dependencies]
 
