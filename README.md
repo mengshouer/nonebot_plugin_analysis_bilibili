@@ -31,7 +31,7 @@ _✨ NoneBot bilibili 视频、番剧解析插件 ✨_
 
 ## 使用方式
 
-私聊或群聊发送 bilibili 的小程序/链接，所有适配器均可使用，目前某些特性仅在 onebot 适配器中能够使用，例如下面可选项的几个。
+私聊或群聊发送 bilibili 的小程序/链接，所有适配器均可使用，在不支持发送图片的适配器中仅发送文字。
 
 ## 额外配置项(可选)
 
@@ -72,5 +72,3 @@ pip 安装后在 Nonebot2 入口文件（例如 bot.py ）增加：
 ```python
 nonebot.load_plugin("nonebot_plugin_analysis_bilibili")
 ```
-
-附：支持 a16 最后一版为 2.4.3

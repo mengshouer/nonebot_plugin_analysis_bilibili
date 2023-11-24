@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "nonebot-plugin-analysis-bilibili"
-version = "2.6.3"
+version = "2.6.4"
 description = "nonebot2解析bilibili插件"
 authors = ["mengshouer"]
 license = "MIT"
@@ -13,7 +13,7 @@ keywords = ["nonebot", "nonebot2", "bilibili"]
 python = "^3.8"
 aiohttp = "^3.7"
 nonebot2 = "^2.0.0rc4"
-nonebot-adapter-onebot = { version = "^2.0.0-beta.1", optional = true }
+nonebot-plugin-send-anything-anywhere = [{ version = ">=0.3.2" }]
 
 [tool.poetry.dev-dependencies]
 
