@@ -23,7 +23,7 @@ async def is_enable_search() -> bool:
 
 
 async def is_normal(event: Event) -> bool:
-    if blacklist and event.get_user_id() in blacklist:
+    if blacklist and str(event.get_user_id()) in blacklist:
         return False
 
     group_id = (
