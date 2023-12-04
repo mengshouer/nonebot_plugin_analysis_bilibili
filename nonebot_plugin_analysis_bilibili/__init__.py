@@ -26,7 +26,7 @@ async def is_normal(event: Event) -> bool:
     if blacklist and str(event.get_user_id()) in blacklist:
         return False
 
-    group_id = (
+    group_id = str(
         event.group_id
         if hasattr(event, "group_id")
         else event.channel_id
@@ -103,7 +103,7 @@ async def send_msg(msg_list: List[Union[List[str], str]]) -> None:
 
 
 async def get_msg(event: Event, text: str, search: bool = False) -> List[str]:
-    group_id = (
+    group_id = str(
         event.group_id
         if hasattr(event, "group_id")
         else event.channel_id
