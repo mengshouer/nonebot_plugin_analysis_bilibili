@@ -6,6 +6,10 @@ from aiohttp import ClientSession
 
 # doc: https://github.com/SocialSisterYi/bilibili-API-collect/blob/master/docs/misc/sign/wbi.md
 
+headers = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36 Edg/116.0.1938.69"
+}
+
 # fmt: off
 mixinKeyEncTab = [
     46, 47, 18, 2, 53, 8, 23, 32, 15, 50, 10, 31, 58, 3, 45, 35, 27, 43, 5, 49,
@@ -40,7 +44,7 @@ def encWbi(params: dict, img_key: str, sub_key: str):
 
 async def getWbiKeys():
     "获取最新的 img_key 和 sub_key"
-    async with ClientSession() as session:
+    async with ClientSession(headers=headers) as session:
         async with session.get("https://api.bilibili.com/x/web-interface/nav") as resp:
             json_content = await resp.json()
     img_url: str = json_content["data"]["wbi_img"]["img_url"]
