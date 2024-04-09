@@ -1,11 +1,22 @@
 import re
 from typing import List, Union
 from aiohttp import ClientSession
-from nonebot import on_regex, logger
+from nonebot import on_regex, logger, require
 from nonebot.adapters import Event
 from nonebot.rule import Rule
+from nonebot.plugin import PluginMetadata
 from .analysis_bilibili import config, b23_extract, bili_keyword, search_bili_by_title
-from nonebot_plugin_saa import MessageFactory, MessageSegmentFactory, Text, Image
+
+require("nonebot_plugin_saa")
+from nonebot_plugin_saa import MessageFactory, MessageSegmentFactory, Text, Image  # noqa: E402
+
+__plugin_meta__ = PluginMetadata(
+    name="analysis_bilibili",
+    description="自动解析bilibili链接内容",
+    usage="https://github.com/mengshouer/nonebot_plugin_analysis_bilibili?tab=readme-ov-file#%E4%BD%BF%E7%94%A8%E6%96%B9%E5%BC%8F",
+    type="application",
+    homepage="https://github.com/mengshouer/nonebot_plugin_analysis_bilibili",
+)
 
 headers = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36 Edg/116.0.1938.69"
