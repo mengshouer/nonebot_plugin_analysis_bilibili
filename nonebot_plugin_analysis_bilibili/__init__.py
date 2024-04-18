@@ -99,7 +99,9 @@ def format_msg(msg_list: List[Union[List[str], str]], is_plain_text: bool = Fals
     return msg
 
 
-async def send_msg(msg_list: List[Union[List[str], str]]) -> None:
+async def send_msg(msg_list: List[Union[List[str], str, bool]]) -> None:
+    if msg_list is False:
+        return
     if msg_list is None:
         logger.warning("此次解析的内容为空，接口可能被修改，需要更新！")
         return
@@ -113,7 +115,7 @@ async def send_msg(msg_list: List[Union[List[str], str]]) -> None:
         logger.warning(f"{msg_list}\n此次解析的内容可能被风控！")
 
 
-async def get_msg(event: Event, text: str, search: bool = False) -> List[str]:
+async def get_msg(event: Event, text: str, search: bool = False) -> Union[List[str], bool]:
     group_id = str(
         event.group_id
         if hasattr(event, "group_id")
@@ -141,7 +143,7 @@ async def get_msg(event: Event, text: str, search: bool = False) -> List[str]:
             if msg[-1].startswith("简介"):
                 msg[-1] = ""
 
-        return msg
+    return msg
 
 
 @analysis_bili.handle()

@@ -1,22 +1,22 @@
 import re
-import json
 import nonebot
 
-from time import localtime, strftime
+from time import time, localtime, strftime
 from typing import Dict, List, Optional, Tuple, Union
 from aiohttp import ClientSession
 
 from .wbi import get_query
 
 
-# group_id : last_vurl
-analysis_stat: Dict[int, str] = {}
+# group_id : [last_vurl, last_analysis_time]
+analysis_stat: Dict[int, List] = {}
 
 config = nonebot.get_driver().config
 analysis_display_image = getattr(config, "analysis_display_image", False)
 analysis_display_image_list = getattr(config, "analysis_display_image_list", [])
 images_size = getattr(config, "analysis_images_size", "")
 cover_images_size = getattr(config, "analysis_cover_images_size", "")
+reanalysis_time = getattr(config, "analysis_reanalysis_time", 0)
 
 
 def resize_image(src: str, is_cover=False) -> str:
@@ -30,7 +30,7 @@ def resize_image(src: str, is_cover=False) -> str:
 
 async def bili_keyword(
     group_id: Optional[int], text: str, session: ClientSession
-) -> Union[List[Union[List[str], str]], str]:
+) -> Union[List[Union[List[str], str]], str, bool]:
     try:
         # 提取url
         url, page, time_location = extract(text)
@@ -58,9 +58,10 @@ async def bili_keyword(
 
         # 避免多个机器人解析重复推送
         if group_id:
-            if group_id in analysis_stat and analysis_stat[group_id] == vurl:
-                return ""
-            analysis_stat[group_id] = vurl
+            if group_id in analysis_stat and analysis_stat[group_id][0] == vurl:
+                if analysis_stat[group_id][1] + int(reanalysis_time) > int(time()):
+                    return False
+            analysis_stat[group_id] = [vurl, int(time())]
     except Exception as e:
         msg = "bili_keyword Error: {}".format(type(e))
     return msg
