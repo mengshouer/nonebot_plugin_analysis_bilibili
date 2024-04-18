@@ -59,7 +59,7 @@ async def bili_keyword(
         # 避免多个机器人解析重复推送
         if group_id:
             if group_id in analysis_stat and analysis_stat[group_id][0] == vurl:
-                if analysis_stat[group_id][1] + int(reanalysis_time) > int(time()):
+                if not reanalysis_time or analysis_stat[group_id][1] + int(reanalysis_time) > int(time()):
                     return False
             analysis_stat[group_id] = [vurl, int(time())]
     except Exception as e:
