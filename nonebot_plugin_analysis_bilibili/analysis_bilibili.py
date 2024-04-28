@@ -47,7 +47,7 @@ async def bili_keyword(
             msg, vurl = await video_detail(
                 url, page=page, time_location=time_location, session=session
             )
-        elif "bangumi" in url:
+        elif "pgc" in url:
             msg, vurl = await bangumi_detail(url, time_location, session)
         elif "xlive" in url:
             msg, vurl = await live_detail(url, session)
@@ -112,12 +112,12 @@ def extract(text: str) -> Tuple[str, Optional[str], Optional[str]]:
             url = f"https://api.bilibili.com/x/web-interface/view?aid={aid[0][2:]}"
         elif epid:
             url = (
-                f"https://bangumi.bilibili.com/view/web_api/season?ep_id={epid[0][2:]}"
+                f"https://api.bilibili.com/pgc/view/web/season?ep_id={epid[0][2:]}"
             )
         elif ssid:
-            url = f"https://bangumi.bilibili.com/view/web_api/season?season_id={ssid[0][2:]}"
+            url = f"https://api.bilibili.com/pgc/view/web/season?season_id={ssid[0][2:]}"
         elif mdid:
-            url = f"https://bangumi.bilibili.com/view/web_api/season?media_id={mdid[0][2:]}"
+            url = f"https://api.bilibili.com/pgc/review/user?media_id={mdid[0][2:]}"
         elif room_id:
             url = f"https://api.live.bilibili.com/xlive/web-room/v1/index/getInfoByRoom?room_id={room_id[2]}"
         elif cvid:
@@ -214,6 +214,15 @@ async def bangumi_detail(
     url: str, time_location: str, session: ClientSession
 ) -> Tuple[List[str], str]:
     try:
+        is_media = False
+        if "media_id" in url:
+            is_media = True
+            async with session.get(url) as resp:
+                ssid = (await resp.json()).get("result").get("media").get("season_id")
+                if not ssid:
+                    return None, None
+            url = f"https://api.bilibili.com/pgc/view/web/season?season_id={ssid}"
+
         async with session.get(url) as resp:
             res = (await resp.json()).get("result")
             if not res:
@@ -225,27 +234,27 @@ async def bangumi_detail(
 
         cover = resize_image(res["cover"], is_cover=True) if has_image else ""
         title = f"番剧：{res['title']}\n"
-        desc = f"{res['newest_ep']['desc']}\n"
-        index_title = ""
-        style = "".join(f"{i}," for i in res["style"])
-        style = f"类型：{style[:-1]}\n"
+        desc = f"{res['new_ep']['desc']}\n"
+        long_title = ""
+        styles = "".join(f"{i}," for i in res["styles"])
+        styles = f"类型：{styles[:-1]}\n"
         evaluate = f"简介：{res['evaluate']}\n"
-        if "season_id" in url:
-            vurl = f"https://www.bilibili.com/bangumi/play/ss{res['season_id']}"
-        elif "media_id" in url:
+        if is_media:
             vurl = f"https://www.bilibili.com/bangumi/media/md{res['media_id']}"
+        elif "season_id" in url:
+            vurl = f"https://www.bilibili.com/bangumi/play/ss{res['season_id']}"
         else:
             epid = re.compile(r"ep_id=\d+").search(url)[0][len("ep_id=") :]
             for i in res["episodes"]:
                 if str(i["ep_id"]) == epid:
-                    index_title = f"标题：{i['index_title']}\n"
+                    long_title = f"标题：{i['long_title']}\n"
                     break
             vurl = f"https://www.bilibili.com/bangumi/play/ep{epid}"
         if time_location:
             time_location = time_location[0].replace("&amp;", "&")[3:]
             vurl += f"?t={time_location}"
         vurl = "\n" + vurl if cover else vurl
-        msg = [cover, f"{vurl}\n", title, index_title, desc, style, evaluate]
+        msg = [cover, f"{vurl}\n", title, long_title, desc, styles, evaluate]
         return msg, vurl
     except Exception as e:
         msg = "番剧解析出错--Error: {}".format(type(e))
