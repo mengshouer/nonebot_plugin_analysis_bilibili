@@ -5,10 +5,16 @@ from nonebot import on_regex, logger, require
 from nonebot.adapters import Event
 from nonebot.rule import Rule
 from nonebot.plugin import PluginMetadata
+from nonebot.params import RegexStr
 from .analysis_bilibili import config, b23_extract, bili_keyword, search_bili_by_title
 
 require("nonebot_plugin_saa")
-from nonebot_plugin_saa import MessageFactory, MessageSegmentFactory, Text, Image  # noqa: E402
+from nonebot_plugin_saa import (
+    MessageFactory,
+    MessageSegmentFactory,
+    Text,
+    Image,
+)
 
 __plugin_meta__ = PluginMetadata(
     name="analysis_bilibili",
@@ -40,9 +46,7 @@ async def is_normal(event: Event) -> bool:
     group_id = str(
         event.group_id
         if hasattr(event, "group_id")
-        else event.channel_id
-        if hasattr(event, "channel_id")
-        else None
+        else event.channel_id if hasattr(event, "channel_id") else None
     )
 
     if group_id in group_blacklist:
@@ -59,7 +63,7 @@ analysis_bili = on_regex(
 )
 
 rule = Rule(is_enable_search, is_normal)
-search_bili = on_regex(r"^搜视频", rule=rule)
+search_bili = on_regex(r"^搜视频.*", rule=rule)
 
 
 def is_image(msg: str) -> bool:
@@ -115,13 +119,13 @@ async def send_msg(msg_list: List[Union[List[str], str, bool]]) -> None:
         logger.warning(f"{msg_list}\n此次解析的内容可能被风控！")
 
 
-async def get_msg(event: Event, text: str, search: bool = False) -> Union[List[str], bool]:
+async def get_msg(
+    event: Event, text: str, search: bool = False
+) -> Union[List[str], bool]:
     group_id = str(
         event.group_id
         if hasattr(event, "group_id")
-        else event.channel_id
-        if hasattr(event, "channel_id")
-        else None
+        else event.channel_id if hasattr(event, "channel_id") else None
     )
 
     async with ClientSession(trust_env=trust_env, headers=headers) as session:
@@ -147,14 +151,12 @@ async def get_msg(event: Event, text: str, search: bool = False) -> Union[List[s
 
 
 @analysis_bili.handle()
-async def handle_analysis(event: Event) -> None:
-    text = str(event.message).strip()
-    msg = await get_msg(event, text)
+async def handle_analysis(event: Event, message=RegexStr()) -> None:
+    msg = await get_msg(event, message)
     await send_msg(msg)
 
 
 @search_bili.handle()
-async def handle_search(event: Event) -> None:
-    text = str(event.message)[3:].strip()
-    msg = await get_msg(event, text, search=True)
+async def handle_search(event: Event, message=RegexStr()) -> None:
+    msg = await get_msg(event, message[3:].strip(), search=True)
     await send_msg(msg)
