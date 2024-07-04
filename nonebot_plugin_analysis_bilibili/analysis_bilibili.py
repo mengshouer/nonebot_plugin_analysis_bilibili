@@ -59,7 +59,9 @@ async def bili_keyword(
         # 避免多个机器人解析重复推送
         if group_id:
             if group_id in analysis_stat and analysis_stat[group_id][0] == vurl:
-                if not reanalysis_time or analysis_stat[group_id][1] + int(reanalysis_time) > int(time()):
+                if not reanalysis_time or analysis_stat[group_id][1] + int(
+                    reanalysis_time
+                ) > int(time()):
                     return False
             analysis_stat[group_id] = [vurl, int(time())]
     except Exception as e:
@@ -111,11 +113,11 @@ def extract(text: str) -> Tuple[str, Optional[str], Optional[str]]:
         elif aid:
             url = f"https://api.bilibili.com/x/web-interface/view?aid={aid[0][2:]}"
         elif epid:
-            url = (
-                f"https://api.bilibili.com/pgc/view/web/season?ep_id={epid[0][2:]}"
-            )
+            url = f"https://api.bilibili.com/pgc/view/web/season?ep_id={epid[0][2:]}"
         elif ssid:
-            url = f"https://api.bilibili.com/pgc/view/web/season?season_id={ssid[0][2:]}"
+            url = (
+                f"https://api.bilibili.com/pgc/view/web/season?season_id={ssid[0][2:]}"
+            )
         elif mdid:
             url = f"https://api.bilibili.com/pgc/review/user?media_id={mdid[0][2:]}"
         elif room_id:
@@ -299,7 +301,9 @@ async def live_detail(url: str, session: ClientSession) -> Tuple[List[str], str]
         else:
             title = f"[未开播]标题：{title}\n"
         up = f"主播：{uname}  当前分区：{parent_area_name}-{area_name}\n"
-        watch = f"观看：{watched_show}  直播时的人气上一次刷新值：{handle_num(online)}\n"
+        watch = (
+            f"观看：{watched_show}  直播时的人气上一次刷新值：{handle_num(online)}\n"
+        )
         if tags:
             tags = f"标签：{tags}\n"
         if live_status:
@@ -379,7 +383,9 @@ async def dynamic_detail(
             if additional_type == "ADDITIONAL_TYPE_GOODS":
                 items = additional.get("goods", {}).get("items", [])
                 for item in items:
-                    additional_msg.append(f"{item.get('name')}（{item.get('price')}）\n")
+                    additional_msg.append(
+                        f"{item.get('name')}（{item.get('price')}）\n"
+                    )
 
         # DRAW图片/ARCHIVE转发视频/null纯文字
         draws = []
