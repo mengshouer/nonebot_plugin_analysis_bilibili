@@ -49,7 +49,7 @@ analysis_display_image = true # 是否显示封面 true/false
 # 哪种类型需要显示封面，与上一项相冲突，上一项为true则全开 List[str]
 analysis_display_image_list = ["video", "bangumi", "live", "article", "dynamic"]
 analysis_enable_search = false # 是否开启搜视频功能 true/false  example: "搜视频 123456"
-analysis_bot_type = onebot # 目前只写了onebot的视频发送功能
+analysis_bot_type = onebot # 目前只写了onebot的视频发送功能 本项在不填写的状态下默认为空，需要手动在配置文件中添加本项
 
 
 analysis_trust_env = false # 是否使用环境变量或者当前系统正在使用中的代理设置 true/false

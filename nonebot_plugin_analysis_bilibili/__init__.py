@@ -158,7 +158,6 @@ async def handle_analysis(event: Event, message=RegexStr()) -> None:
     url = f"https://api.injahow.cn/bparse/?bv={bvid}&q=80&format=mp4&otype=url"
     r = requests.get(url)
     vurl = r.text
-    print(vurl)
     await send_msg(msg)
     if bot_type == 'onebot':
         await analysis_bili.send(MessageSegment.video(vurl))

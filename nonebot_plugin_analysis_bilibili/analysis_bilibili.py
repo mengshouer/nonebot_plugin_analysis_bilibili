@@ -35,7 +35,6 @@ async def bili_keyword(
     try:
         # 提取url
         url, page, time_location, bvid = extract(text)
-        print(bvid)
         # 如果是小程序就去搜索标题
         if not url:
             if title := re.search(r'"desc":("[^"哔哩]+")', text):
