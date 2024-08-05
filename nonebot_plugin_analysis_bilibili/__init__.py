@@ -1,4 +1,5 @@
 import re
+import requests
 from typing import List, Union
 from aiohttp import ClientSession
 from nonebot import on_regex, logger, require
@@ -6,7 +7,8 @@ from nonebot.adapters import Event
 from nonebot.rule import Rule
 from nonebot.plugin import PluginMetadata
 from nonebot.params import RegexStr
-from .analysis_bilibili import config, b23_extract, bili_keyword, search_bili_by_title
+from nonebot.adapters.onebot.v11 import MessageSegment
+from .analysis_bilibili import config, b23_extract, bili_keyword, search_bili_by_title, bot_type
 
 require("nonebot_plugin_saa")
 from nonebot_plugin_saa import (
@@ -136,7 +138,7 @@ async def get_msg(
                 # 提前处理短链接，避免解析到其他的
                 text = await b23_extract(text, session=session)
 
-        msg = await bili_keyword(group_id, text, session=session)
+        msg, bvid = await bili_keyword(group_id, text, session=session)
 
     if msg:
         if isinstance(msg, str):
@@ -147,13 +149,19 @@ async def get_msg(
             if msg[-1].startswith("简介"):
                 msg[-1] = ""
 
-    return msg
+    return msg, bvid
 
 
 @analysis_bili.handle()
 async def handle_analysis(event: Event, message=RegexStr()) -> None:
-    msg = await get_msg(event, message)
+    msg, bvid = await get_msg(event, message)
+    url = f"https://api.injahow.cn/bparse/?bv={bvid}&q=80&format=mp4&otype=url"
+    r = requests.get(url)
+    vurl = r.text
+    print(vurl)
     await send_msg(msg)
+    if bot_type == 'onebot':
+        await analysis_bili.send(MessageSegment.video(vurl))
 
 
 @search_bili.handle()

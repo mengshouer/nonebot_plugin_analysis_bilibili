@@ -1,12 +1,12 @@
 import re
 import nonebot
+import asyncio
 
 from time import time, localtime, strftime
 from typing import Dict, List, Optional, Tuple, Union
 from aiohttp import ClientSession
 
 from .wbi import get_query
-
 
 # group_id : [last_vurl, last_analysis_time]
 analysis_stat: Dict[int, List] = {}
@@ -17,6 +17,7 @@ analysis_display_image_list = getattr(config, "analysis_display_image_list", [])
 images_size = getattr(config, "analysis_images_size", "")
 cover_images_size = getattr(config, "analysis_cover_images_size", "")
 reanalysis_time = getattr(config, "analysis_reanalysis_time", 0)
+bot_type = getattr(config, "analysis_bot_type", "")
 
 
 def resize_image(src: str, is_cover=False) -> str:
@@ -33,13 +34,14 @@ async def bili_keyword(
 ) -> Union[List[Union[List[str], str]], str, bool]:
     try:
         # 提取url
-        url, page, time_location = extract(text)
+        url, page, time_location, bvid = extract(text)
+        print(bvid)
         # 如果是小程序就去搜索标题
         if not url:
             if title := re.search(r'"desc":("[^"哔哩]+")', text):
                 vurl = await search_bili_by_title(title[1], session)
                 if vurl:
-                    url, page, time_location = extract(vurl)
+                    url, page, time_location, bvid = extract(vurl)
 
         # 获取视频详细信息
         msg, vurl = "", ""
@@ -65,8 +67,9 @@ async def bili_keyword(
                     return False
             analysis_stat[group_id] = [vurl, int(time())]
     except Exception as e:
+        print(e)
         msg = "bili_keyword Error: {}".format(type(e))
-    return msg
+    return msg, bvid
 
 
 async def b23_extract(text: str, session: ClientSession) -> str:
@@ -129,9 +132,9 @@ def extract(text: str) -> Tuple[str, Optional[str], Optional[str]]:
             url = f"https://api.bilibili.com/x/polymer/web-dynamic/v1/detail?rid={dynamic_id_type2[2]}&type=2"
         elif dynamic_id:
             url = f"https://api.bilibili.com/x/polymer/web-dynamic/v1/detail?id={dynamic_id[2]}"
-        return url, page, time
+        return url, page, time, bvid.group(0)
     except Exception:
-        return "", None, None
+        return "", None, None, None
 
 
 async def search_bili_by_title(title: str, session: ClientSession) -> str:
