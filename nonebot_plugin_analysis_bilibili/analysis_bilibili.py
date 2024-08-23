@@ -107,7 +107,7 @@ def extract(text: str) -> Tuple[str, Optional[str], Optional[str]]:
             r"(t|m).bilibili.com/(\d+)\?(.*?)(&|&amp;)type=2", re.I
         ).search(text)
         # 动态
-        dynamic_id = re.compile(r"(t|m).bilibili.com/(\d+)", re.I).search(text)
+        dynamic_id = re.compile(r"(t|m).bilibili.com/(opus/)?(\d+)", re.I).search(text)
         if bvid:
             url = f"https://api.bilibili.com/x/web-interface/view?bvid={bvid[0]}"
         elif aid:
@@ -128,7 +128,7 @@ def extract(text: str) -> Tuple[str, Optional[str], Optional[str]]:
         elif dynamic_id_type2:
             url = f"https://api.bilibili.com/x/polymer/web-dynamic/v1/detail?rid={dynamic_id_type2[2]}&type=2"
         elif dynamic_id:
-            url = f"https://api.bilibili.com/x/polymer/web-dynamic/v1/detail?id={dynamic_id[2]}"
+            url = f"https://api.bilibili.com/x/polymer/web-dynamic/v1/detail?id={dynamic_id[3]}"
         return url, page, time
     except Exception:
         return "", None, None
@@ -368,7 +368,7 @@ async def dynamic_detail(
         module_type = res["type"]
 
         # 文字信息
-        desc = module_dynamic["desc"]
+        desc = module_dynamic["desc"] if module_dynamic["desc"] else {"text": ""}
         content = desc.get("text").replace("\r", "\n").replace("\n\n", "\n")
 
         has_image = False
