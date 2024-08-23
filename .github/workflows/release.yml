@@ -2,14 +2,15 @@ name: Upload Python Package
 
 on:
   push:
-    branches: [master]
+    paths:
+      - "pyproject.toml"
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Set up Python
         uses: actions/setup-python@master
         with:
@@ -21,7 +22,7 @@ jobs:
       - name: Build package
         run: poetry build
       - name: Publish a Python distribution to PyPI
-        uses: pypa/gh-action-pypi-publish@master
+        uses: pypa/gh-action-pypi-publish@release/v1
         with:
           user: __token__
           password: ${{ secrets.PYPI_API_TOKEN }}
