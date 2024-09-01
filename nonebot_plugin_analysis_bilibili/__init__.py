@@ -28,6 +28,9 @@ headers = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36 Edg/127.0.0.0"
 }
 
+list_mode = getattr(config, "analysis_list_mode", 2)
+whitelist = [str(i) for i in getattr(config, "analysis_whitelist", [])]
+group_whitelist = [str(i) for i in getattr(config, "analysis_group_whitelist", [])]
 blacklist = [str(i) for i in getattr(config, "analysis_blacklist", [])]
 group_blacklist = [str(i) for i in getattr(config, "analysis_group_blacklist", [])]
 desc_blacklist = [str(i) for i in getattr(config, "analysis_desc_blacklist", [])]
@@ -40,19 +43,23 @@ async def is_enable_search() -> bool:
 
 
 async def is_normal(event: Event) -> bool:
-    if blacklist and str(event.get_user_id()) in blacklist:
-        return False
-
+    user_id = str(event.get_user_id())
     group_id = str(
         event.group_id
         if hasattr(event, "group_id")
         else event.channel_id if hasattr(event, "channel_id") else None
     )
 
-    if group_id in group_blacklist:
+    if list_mode == 1:
+        if user_id in whitelist or group_id in group_whitelist:
+            return True
         return False
-
-    return True
+    elif list_mode == 2:
+        if user_id in blacklist or group_id in group_blacklist:
+            return False
+        return True
+    else:
+        return True
 
 
 analysis_bili = on_regex(
