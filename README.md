@@ -41,8 +41,13 @@ _✨ NoneBot bilibili 视频、番剧解析插件 ✨_
 # 当图片大小超过下值时，修改图片大小，不填则发送原图，example: 100h / 100w / 100h_100w
 analysis_images_size = ""
 analysis_cover_images_size = "" # 封面图大小，和上面相同，视频、直播、番剧 封面图使用这个大小
+
+analysis_whitelist = [123456789] # 只解析里面填写的QQ号发的链接 List[int | str]
+analysis_group_whitelist = [123456789] # 只解析里面填写的QQ群号发的链接 List[int | str]
+# 填了任何一个白名单后，黑名单失效
 analysis_blacklist = [123456789] # 不解析里面填写的QQ号发的链接 List[int | str]
 analysis_group_blacklist = [123456789] # 不解析里面填写的QQ群号发的链接 List[int | str]
+
 analysis_desc_blacklist = [123456789] # 里面填写的群号，发送的解析内容不包含简介 List[int | str]
 analysis_reanalysis_time = 0 # 同一个视频重新解析时间，单位秒，0为不重新解析，example: 60
 analysis_display_image = true # 是否显示封面 true/false
