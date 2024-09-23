@@ -5,11 +5,12 @@ from time import time, localtime, strftime
 from typing import Dict, List, Optional, Tuple, Union
 from aiohttp import ClientSession
 
+from .ExpiringCache import ExpiringCache
 from .wbi import get_query
 
+# analysis_stat : {group_id: ExpiringCache}
+analysis_stat: Dict[int, ExpiringCache] = {}
 
-# group_id : [last_vurl, last_analysis_time]
-analysis_stat: Dict[int, List] = {}
 
 config = nonebot.get_driver().config
 analysis_display_image = getattr(config, "analysis_display_image", False)
@@ -58,12 +59,14 @@ async def bili_keyword(
 
         # 避免多个机器人解析重复推送
         if group_id:
-            if group_id in analysis_stat and analysis_stat[group_id][0] == vurl:
-                if not reanalysis_time or analysis_stat[group_id][1] + int(
-                    reanalysis_time
-                ) > int(time()):
+            if group_id in analysis_stat:
+                if analysis_stat[group_id].get(vurl):
                     return False
-            analysis_stat[group_id] = [vurl, int(time())]
+                analysis_stat[group_id].set(vurl)
+            else:
+                analysis_stat[group_id] = ExpiringCache(expire_seconds=reanalysis_time)
+                analysis_stat[group_id].set(vurl)
+
     except Exception as e:
         msg = "bili_keyword Error: {}".format(type(e))
     return msg
