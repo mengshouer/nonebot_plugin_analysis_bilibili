@@ -49,7 +49,7 @@ analysis_blacklist = [123456789] # 不解析里面填写的QQ号发的链接 Lis
 analysis_group_blacklist = [123456789] # 不解析里面填写的QQ群号发的链接 List[int | str]
 
 analysis_desc_blacklist = [123456789] # 里面填写的群号，发送的解析内容不包含简介 List[int | str]
-analysis_reanalysis_time = 0 # 同一个视频重新解析时间，单位秒，0为不重新解析，example: 60
+analysis_reanalysis_time = 0 # 同一个视频重新解析时间，单位秒，0为不重新解析，example: 60 （设置为 0 的时候只记录上一个，大于 0 时记录多个链接）
 analysis_display_image = true # 是否显示封面 true/false
 # 哪种类型需要显示封面，与上一项相冲突，上一项为true则全开 List[str]
 analysis_display_image_list = ["video", "bangumi", "live", "article", "dynamic"]
