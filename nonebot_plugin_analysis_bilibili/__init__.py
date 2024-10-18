@@ -64,10 +64,12 @@ async def is_normal(event: Event) -> bool:
 
 
 analysis_bili = on_regex(
-    r".*((b23.tv)|(bili(22|23|33|2233).cn)|(.bilibili.com)|(^(av|cv)(\d+))|(^BV([a-zA-Z0-9]{10})+)|"
-    r"(\[\[QQ小程序\]哔哩哔哩\])|(QQ小程序&amp;#93;哔哩哔哩)|(QQ小程序&#93;哔哩哔哩)).*",
+    r"^(?:(av|cv)\d+|BV[a-zA-Z0-9]{10})|"
+    r".*(?:b23\.tv|bili(?:22|23|33|2233)\.cn|\.bilibili\.com|QQ小程序(?:&amp;#93;|&#93;|\])哔哩哔哩).*",
     flags=re.I,
     rule=is_normal,
+    block=False,
+    priority=11,
 )
 
 rule = Rule(is_enable_search, is_normal)
@@ -124,7 +126,7 @@ async def send_msg(msg_list: List[Union[List[str], str, bool]]) -> None:
         await analysis_bili.send(format_msg(msg_list, is_plain_text=True))
     except Exception as e:
         logger.exception(e)
-        logger.warning(f"{msg_list}\n此次解析的内容可能被风控！")
+        logger.warning(f"错误的内容：{msg_list}\n此次解析的内容可能被风控！")
 
 
 async def get_msg(
