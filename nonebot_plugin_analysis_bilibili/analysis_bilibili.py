@@ -1,7 +1,7 @@
 import re
 import nonebot
 
-from time import time, localtime, strftime
+from time import localtime, strftime
 from typing import Dict, List, Optional, Tuple, Union
 from aiohttp import ClientSession
 
@@ -73,7 +73,7 @@ async def bili_keyword(
 
 
 async def b23_extract(text: str, session: ClientSession) -> str:
-    b23 = re.compile(r"b23.tv/(\w+)|(bili(22|23|33|2233).cn)/(\w+)", re.I).search(
+    b23 = re.compile(r"b23.tv/(\w+)|(bili(22|23|33|2233).cn)/(\w+)").search(
         text.replace("\\", "")
     )
     url = f"https://{b23[0]}"
@@ -90,27 +90,25 @@ def extract(text: str) -> Tuple[str, Optional[str], Optional[str]]:
         # 视频播放定位时间
         time = re.compile(r"([?&]|&amp;)t=\d+").search(text)
         # 主站视频 av 号
-        aid = re.compile(r"av\d+", re.I).search(text)
+        aid = re.compile(r"av\d+").search(text)
         # 主站视频 bv 号
-        bvid = re.compile(r"BV([A-Za-z0-9]{10})+", re.I).search(text)
+        bvid = re.compile(r"BV([A-Za-z0-9]{10})+").search(text)
         # 番剧视频页
-        epid = re.compile(r"ep\d+", re.I).search(text)
+        epid = re.compile(r"ep\d+").search(text)
         # 番剧剧集ssid(season_id)
-        ssid = re.compile(r"ss\d+", re.I).search(text)
+        ssid = re.compile(r"ss\d+").search(text)
         # 番剧详细页
-        mdid = re.compile(r"md\d+", re.I).search(text)
+        mdid = re.compile(r"md\d+").search(text)
         # 直播间
-        room_id = re.compile(r"live.bilibili.com/(blanc/|h5/)?(\d+)", re.I).search(text)
+        room_id = re.compile(r"live.bilibili.com/(blanc/|h5/)?(\d+)").search(text)
         # 文章
-        cvid = re.compile(
-            r"(/read/(cv|mobile|native)(/|\?id=)?|^cv)(\d+)", re.I
-        ).search(text)
+        cvid = re.compile(r"(/read/(cv|mobile|native)(/|\?id=)?|^cv)(\d+)").search(text)
         # 动态
         dynamic_id_type2 = re.compile(
-            r"(t|m).bilibili.com/(\d+)\?(.*?)(&|&amp;)type=2", re.I
+            r"(t|m).bilibili.com/(\d+)\?(.*?)(&|&amp;)type=2"
         ).search(text)
         # 动态
-        dynamic_id = re.compile(r"(t|m).bilibili.com/(opus/)?(\d+)", re.I).search(text)
+        dynamic_id = re.compile(r"(t|m).bilibili.com/(opus/)?(\d+)").search(text)
         if bvid:
             url = f"https://api.bilibili.com/x/web-interface/view?bvid={bvid[0]}"
         elif aid:

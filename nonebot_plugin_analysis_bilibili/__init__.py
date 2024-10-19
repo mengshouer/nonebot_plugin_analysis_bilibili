@@ -1,15 +1,14 @@
 import re
 from typing import List, Union
 from aiohttp import ClientSession
-from nonebot import on_regex, logger, require
+from nonebot import on_regex, logger, require, on_message
 from nonebot.adapters import Event
 from nonebot.rule import Rule
 from nonebot.plugin import PluginMetadata
-from nonebot.params import RegexStr
 from .analysis_bilibili import config, b23_extract, bili_keyword, search_bili_by_title
 
 require("nonebot_plugin_saa")
-from nonebot_plugin_saa import (
+from nonebot_plugin_saa import (  # noqa: E402
     MessageFactory,
     MessageSegmentFactory,
     Text,
@@ -35,6 +34,7 @@ group_blacklist = [str(i) for i in getattr(config, "analysis_group_blacklist", [
 desc_blacklist = [str(i) for i in getattr(config, "analysis_desc_blacklist", [])]
 trust_env = getattr(config, "analysis_trust_env", False)
 enable_search = getattr(config, "analysis_enable_search", False)
+use_on_message = getattr(config, "analysis_use_on_message", False)
 
 
 async def is_enable_search() -> bool:
@@ -63,14 +63,21 @@ async def is_normal(event: Event) -> bool:
     return True
 
 
+pattern = (
+    r"^(?:(?:av|cv)\d+|BV[a-zA-Z0-9]{10})|"
+    r"(?:b23\.tv|bili(?:22|23|33|2233)\.cn|\.bilibili\.com|QQ小程序(?:&amp;#93;|&#93;|\])哔哩哔哩).{0,500}"
+)
+
 analysis_bili = on_regex(
-    r"^(?:(av|cv)\d+|BV[a-zA-Z0-9]{10})|"
-    r".*(?:b23\.tv|bili(?:22|23|33|2233)\.cn|\.bilibili\.com|QQ小程序(?:&amp;#93;|&#93;|\])哔哩哔哩).*",
-    flags=re.I,
+    pattern,
     rule=is_normal,
     block=False,
     priority=11,
 )
+
+if use_on_message:
+    analysis_bili = on_message(rule=is_normal, block=False, priority=11)
+
 
 rule = Rule(is_enable_search, is_normal)
 search_bili = on_regex(r"^搜视频.*", rule=rule)
@@ -163,12 +170,23 @@ async def get_msg(
 
 
 @analysis_bili.handle()
-async def handle_analysis(event: Event, message=RegexStr()) -> None:
-    msg = await get_msg(event, message)
+async def handle_analysis(event: Event) -> None:
+    message = event.get_message()
+    # on_message
+    if use_on_message:
+        # 不解析转发消息，可能会过长导致匹配时间过长
+        for segment in message:
+            if segment.type == "forward":
+                logger.debug("analysis_bilibili 忽略转发消息")
+                return
+        if not re.search(pattern, str(message)):
+            return
+    # on_regex
+    msg = await get_msg(event, str(message))
     await send_msg(msg)
 
 
 @search_bili.handle()
-async def handle_search(event: Event, message=RegexStr()) -> None:
-    msg = await get_msg(event, message[3:].strip(), search=True)
+async def handle_search(event: Event) -> None:
+    msg = await get_msg(event, str(event.get_message())[3:].strip(), search=True)
     await send_msg(msg)
