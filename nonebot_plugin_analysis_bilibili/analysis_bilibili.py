@@ -6,7 +6,7 @@ from typing import Dict, List, Optional, Tuple, Union
 from aiohttp import ClientSession
 
 from .ExpiringCache import ExpiringCache
-from .wbi import get_query
+from .sign import get_query, get_ticket
 
 # analysis_stat : {group_id: ExpiringCache}
 analysis_stat: Dict[int, ExpiringCache] = {}
@@ -143,6 +143,10 @@ async def search_bili_by_title(title: str, session: ClientSession) -> str:
 
     query = await get_query({"keyword": title})
     search_url = f"https://api.bilibili.com/x/web-interface/wbi/search/all/v2?{query}"
+
+    bili_ticket = await get_ticket()
+
+    session.cookie_jar.update_cookies({"bili_ticket": bili_ticket})
 
     async with session.get(search_url) as resp:
         result = await resp.json()
