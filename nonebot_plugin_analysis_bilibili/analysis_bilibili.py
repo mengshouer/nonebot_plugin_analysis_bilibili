@@ -1,9 +1,11 @@
+import asyncio
 import re
 import nonebot
 
 from time import localtime, strftime
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 from aiohttp import ClientSession
+from yarl import URL
 
 from .ExpiringCache import ExpiringCache
 from .sign import get_query, get_ticket
@@ -18,6 +20,72 @@ analysis_display_image_list = getattr(config, "analysis_display_image_list", [])
 images_size = getattr(config, "analysis_images_size", "")
 cover_images_size = getattr(config, "analysis_cover_images_size", "")
 reanalysis_time = getattr(config, "analysis_reanalysis_time", 0)
+
+RISK_CODES = {-352, -412, -509, -799}
+
+_analysis_cookie = getattr(config, "analysis_bilibili_cookie", "")
+if isinstance(_analysis_cookie, (list, tuple, set)):
+    _analysis_cookie = ";".join(str(i) for i in _analysis_cookie)
+analysis_bilibili_cookie = str(_analysis_cookie or "")
+
+
+def parse_cookie(cookie: str) -> Dict[str, str]:
+    result: Dict[str, str] = {}
+    for item in cookie.split(";"):
+        if "=" not in item:
+            continue
+        key, value = item.strip().split("=", 1)
+        if key:
+            result[key] = value
+    return result
+
+
+async def init_cookie(session: ClientSession, use_config: bool = True) -> None:
+    if session.cookie_jar.filter_cookies(URL("https://api.bilibili.com/")).get("buvid3"):
+        return
+
+    try:
+        async with session.get("https://api.bilibili.com/x/frontend/finger/spi") as resp:
+            spi = (await resp.json(content_type=None)).get("data") or {}
+        cookies = {"buvid3": spi.get("b_3", ""), "buvid4": spi.get("b_4", "")}
+        cookies = {k: v for k, v in cookies.items() if v}
+    except Exception as e:
+        nonebot.logger.warning(f"analysis_bilibili: 获取 buvid 失败 {e!r}")
+        cookies = {}
+
+    if use_config:
+        cookies.update(parse_cookie(analysis_bilibili_cookie))
+
+    if cookies:
+        session.cookie_jar.update_cookies(cookies)
+
+
+async def fetch_api(
+    session: ClientSession, url: str, retry: int = 2
+) -> Optional[Dict[str, Any]]:
+    for index in range(retry):
+        # 首次尝试允许使用配置的 cookie；重试时只用匿名指纹，避免沿用已过期的配置
+        await init_cookie(session, use_config=index == 0)
+        try:
+            async with session.get(url) as resp:
+                try:
+                    data = await resp.json(content_type=None)
+                except Exception:
+                    data = None
+                if isinstance(data, dict) and data.get("code") not in RISK_CODES:
+                    return data
+                code = data.get("code") if isinstance(data, dict) else "非 JSON"
+                nonebot.logger.warning(
+                    f"analysis_bilibili: 接口风控 (HTTP {resp.status} / code {code}) {url}"
+                )
+        except Exception as e:
+            nonebot.logger.warning(f"analysis_bilibili: 请求失败 {e!r} {url}")
+        if index < retry - 1:
+            # 清空 cookie 后重新获取，避免沿用已被风控的指纹
+            session.cookie_jar.clear()
+            await asyncio.sleep(1)
+    return None
+
 
 
 def resize_image(src: str, is_cover=False) -> str:
@@ -54,8 +122,18 @@ async def bili_keyword(
             msg, vurl = await live_detail(url, session)
         elif "article" in url:
             msg, vurl = await article_detail(url, page, session)
+        elif "opus/detail" in url:
+            msg, vurl = await opus_detail(url, session)
         elif "dynamic" in url:
-            msg, vurl = await dynamic_detail(url, session)
+            # 新版动态的正文只存在于 opus 数据里，优先用 opus 接口解析
+            if dynamic_match := re.search(r"detail\?id=(\d+)", url):
+                msg, vurl = await opus_detail(
+                    "https://api.bilibili.com/x/polymer/web-dynamic/v1/opus/detail"
+                    f"?id={dynamic_match[1]}",
+                    session,
+                )
+            if not msg:
+                msg, vurl = await dynamic_detail(url, session)
 
         # 避免多个机器人解析重复推送
         if group_id:
@@ -109,6 +187,10 @@ def extract(text: str) -> Tuple[str, Optional[str], Optional[str]]:
         ).search(text)
         # 动态
         dynamic_id = re.compile(r"(t|m).bilibili.com/(opus/)?(\d+)").search(text)
+        # 动态/图文（新版 opus 链接）
+        opus_id = re.compile(r"bilibili.com/opus/(\d+)").search(text)
+        # 动态（移动端分享链接）
+        dynamic_id_mobile = re.compile(r"m.bilibili.com/dynamic/(\d+)").search(text)
         if bvid:
             url = f"https://api.bilibili.com/x/web-interface/view?bvid={bvid[0]}"
         elif aid:
@@ -126,6 +208,10 @@ def extract(text: str) -> Tuple[str, Optional[str], Optional[str]]:
         elif cvid:
             page = cvid[4]
             url = f"https://api.bilibili.com/x/article/viewinfo?id={page}&mobi_app=pc&from=web"
+        elif opus_id:
+            url = f"https://api.bilibili.com/x/polymer/web-dynamic/v1/opus/detail?id={opus_id[1]}"
+        elif dynamic_id_mobile:
+            url = f"https://api.bilibili.com/x/polymer/web-dynamic/v1/detail?id={dynamic_id_mobile[1]}"
         elif dynamic_id_type2:
             url = f"https://api.bilibili.com/x/polymer/web-dynamic/v1/detail?rid={dynamic_id_type2[2]}&type=2"
         elif dynamic_id:
@@ -137,6 +223,7 @@ def extract(text: str) -> Tuple[str, Optional[str], Optional[str]]:
 
 async def search_bili_by_title(title: str, session: ClientSession) -> str:
     # set headers
+    await init_cookie(session)
     mainsite_url = "https://www.bilibili.com"
     async with session.get(mainsite_url) as resp:
         assert resp.status == 200
@@ -148,14 +235,11 @@ async def search_bili_by_title(title: str, session: ClientSession) -> str:
 
     session.cookie_jar.update_cookies({"bili_ticket": bili_ticket})
 
-    async with session.get(search_url) as resp:
-        result = await resp.json()
-
-    if result["code"] == -412:
-        nonebot.logger.warning(f"analysis_bilibili: {result}")
+    result = await fetch_api(session, search_url)
+    if not result:
         return
 
-    for i in result["data"]["result"]:
+    for i in (result.get("data") or {}).get("result", []):
         if i.get("result_type") != "video":
             continue
         # 只返回第一个结果
@@ -173,10 +257,12 @@ async def video_detail(
     url: str, session: ClientSession, **kwargs
 ) -> Tuple[List[str], str]:
     try:
-        async with session.get(url) as resp:
-            res = (await resp.json()).get("data")
-            if not res:
-                return "解析到视频被删了/稿件不可见或审核中/权限不足", url
+        data = await fetch_api(session, url)
+        if data is None:
+            return None, None
+        res = data.get("data")
+        if not res:
+            return "解析到视频被删了/稿件不可见或审核中/权限不足", url
         vurl = f"https://www.bilibili.com/video/av{res['aid']}"
         title = f"\n标题：{res['title']}\n"
 
@@ -213,8 +299,8 @@ async def video_detail(
         msg = [cover, vurl, title, tname, stat, desc]
         return msg, vurl
     except Exception as e:
-        msg = "视频解析出错--Error: {}".format(type(e))
-        return msg, None
+        nonebot.logger.warning(f"analysis_bilibili: 视频解析失败 {e!r} {url}")
+        return None, None
 
 
 async def bangumi_detail(
@@ -224,16 +310,19 @@ async def bangumi_detail(
         is_media = False
         if "media_id" in url:
             is_media = True
-            async with session.get(url) as resp:
-                ssid = (await resp.json()).get("result").get("media").get("season_id")
-                if not ssid:
-                    return None, None
+            data = await fetch_api(session, url)
+            ssid = ((data or {}).get("result") or {}).get("media") or {}
+            ssid = ssid.get("season_id")
+            if not ssid:
+                return None, None
             url = f"https://api.bilibili.com/pgc/view/web/season?season_id={ssid}"
 
-        async with session.get(url) as resp:
-            res = (await resp.json()).get("result")
-            if not res:
-                return None, None
+        data = await fetch_api(session, url)
+        if data is None:
+            return None, None
+        res = data.get("result")
+        if not res:
+            return None, None
 
         has_image = False
         if analysis_display_image or "bangumi" in analysis_display_image_list:
@@ -264,18 +353,16 @@ async def bangumi_detail(
         msg = [cover, f"{vurl}\n", title, long_title, desc, styles, evaluate]
         return msg, vurl
     except Exception as e:
-        msg = "番剧解析出错--Error: {}".format(type(e))
-        msg += f"\n{url}"
-        return msg, None
+        nonebot.logger.warning(f"analysis_bilibili: 番剧解析失败 {e!r} {url}")
+        return None, None
 
 
 async def live_detail(url: str, session: ClientSession) -> Tuple[List[str], str]:
     try:
-        async with session.get(url) as resp:
-            res = await resp.json()
-            if res["code"] != 0:
-                return None, None
-        res = res["data"]
+        data = await fetch_api(session, url)
+        if not data or data.get("code") != 0:
+            return None, None
+        res = data["data"]
         uname = res["anchor_info"]["base_info"]["uname"]
         room_id = res["room_info"]["room_id"]
         title = res["room_info"]["title"]
@@ -319,18 +406,20 @@ async def live_detail(url: str, session: ClientSession) -> Tuple[List[str], str]
         msg = [cover, vurl, title, up, watch, tags, player]
         return msg, vurl
     except Exception as e:
-        msg = "直播间解析出错--Error: {}".format(type(e))
-        return msg, None
+        nonebot.logger.warning(f"analysis_bilibili: 直播间解析失败 {e!r} {url}")
+        return None, None
 
 
 async def article_detail(
     url: str, cvid: str, session: ClientSession
 ) -> Tuple[List[Union[List[str], str]], str]:
     try:
-        async with session.get(url) as resp:
-            res = (await resp.json()).get("data")
-            if not res:
-                return None, None
+        data = await fetch_api(session, url)
+        if not data:
+            return None, None
+        res = data.get("data")
+        if not res:
+            return None, None
 
         has_image = False
         if analysis_display_image or "article" in analysis_display_image_list:
@@ -352,19 +441,20 @@ async def article_detail(
         msg = [images, title, up, desc, vurl]
         return msg, vurl
     except Exception as e:
-        msg = "专栏解析出错--Error: {}".format(type(e))
-        return msg, None
+        nonebot.logger.warning(f"analysis_bilibili: 专栏解析失败 {e!r} {url}")
+        return None, None
 
 
 async def dynamic_detail(
     url: str, session: ClientSession
 ) -> Tuple[List[Union[List[str], str]], str]:
     try:
-        async with session.get(url) as resp:
-            res = await resp.json()
-            if res["code"] != 0:
-                return None, None
-        res = res.get("data").get("item")
+        data = await fetch_api(session, url)
+        if not data or data.get("code") != 0:
+            return None, None
+        res = (data.get("data") or {}).get("item")
+        if not res:
+            return None, None
         dynamic_id = res["id_str"]
         vurl = f"https://t.bilibili.com/{dynamic_id}\n"
 
@@ -436,5 +526,88 @@ async def dynamic_detail(
         ]
         return msg, vurl
     except Exception as e:
-        msg = "动态解析出错--Error: {}".format(type(e))
-        return msg, None
+        nonebot.logger.warning(f"analysis_bilibili: 动态解析失败 {e!r} {url}")
+        return None, None
+
+
+def opus_text(content: dict) -> str:
+    texts: List[str] = []
+    for para in content.get("paragraphs") or []:
+        text = para.get("text") or {}
+        for node in text.get("nodes") or []:
+            words = (node.get("word") or {}).get("words")
+            if words:
+                texts.append(words)
+            rich = (node.get("rich") or {}).get("text")
+            if rich:
+                texts.append(rich)
+        texts.append("\n")
+    return "".join(texts).strip()
+
+
+async def opus_detail(
+    url: str, session: ClientSession
+) -> Tuple[List[Union[List[str], str]], str]:
+    try:
+        data = await fetch_api(session, url)
+        if not data or data.get("code") != 0:
+            return None, None
+        item = (data.get("data") or {}).get("item")
+        if not item:
+            return None, None
+
+        dynamic_id = item.get("id_str") or ""
+        vurl = f"https://www.bilibili.com/opus/{dynamic_id}\n"
+
+        has_image = False
+        if analysis_display_image or "dynamic" in analysis_display_image_list:
+            has_image = True
+
+        title = ""
+        author = ""
+        pub_time = ""
+        content = ""
+        images: List[str] = []
+        for module in item.get("modules") or []:
+            module_type = module.get("module_type")
+            if module_type == "MODULE_TYPE_TITLE":
+                title = ((module.get("module_title") or {}).get("text") or "").strip()
+            elif module_type == "MODULE_TYPE_AUTHOR":
+                author_info = module.get("module_author") or {}
+                author = (author_info.get("name") or "").strip()
+                pub_time = (author_info.get("pub_time") or "").strip()
+            elif module_type == "MODULE_TYPE_CONTENT":
+                module_content = module.get("module_content") or {}
+                content = opus_text(module_content)
+                if has_image:
+                    for para in module_content.get("paragraphs") or []:
+                        pics = (para.get("pic") or {}).get("pics") or []
+                        images.extend(
+                            resize_image(pic["url"])
+                            for pic in pics
+                            if pic.get("url")
+                        )
+                else:
+                    pic_count = sum(
+                        len((para.get("pic") or {}).get("pics") or [])
+                        for para in module_content.get("paragraphs") or []
+                    )
+                    if pic_count:
+                        content += f"\nPS：动态中包含{pic_count}张图片"
+
+        if not (content or title or images):
+            return None, None
+
+        msg = [
+            images,
+            vurl,
+            f"标题：{title}\n" if title else "",
+            f"UP：{author}" + (f" | 日期：{pub_time}" if pub_time else "") + "\n"
+            if author
+            else "",
+            content,
+        ]
+        return msg, vurl
+    except Exception as e:
+        nonebot.logger.warning(f"analysis_bilibili: 图文动态解析失败 {e!r} {url}")
+        return None, None

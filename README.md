@@ -58,6 +58,9 @@ analysis_use_on_message = false # 是否使用 on_message 处理消息，并且�
 
 
 analysis_trust_env = false # 是否使用环境变量或者当前系统正在使用中的代理设置 true/false
+
+# 可选：整段指定 B 站 cookie，不填则自动获取匿名指纹
+analysis_bilibili_cookie = "buvid3=xxx; buvid4=xxx; bili_ticket=xxx; SESSDATA=xxx"
 ```
 
 ## 安装
