@@ -121,11 +121,6 @@ def format_msg(msg_list: List[Union[List[str], str]], is_plain_text: bool = Fals
 
 
 async def send_msg(msg_list: List[Union[List[str], str, bool]]) -> None:
-    if msg_list is False:
-        return
-    if msg_list is None:
-        logger.warning("此次解析的内容为空，接口可能被修改，需要更新！")
-        return
     if not msg_list:
         return
 
