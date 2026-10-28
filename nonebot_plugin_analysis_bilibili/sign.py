@@ -93,12 +93,13 @@ async def get_ticket():
     """
     获取ticket
     """
-    o = hmac_sha256("XgwSnGZ1p", f"ts{int(time.time())}")
+    ts = int(time.time())
+    o = hmac_sha256("XgwSnGZ1p", f"ts{ts}")
     url = "https://api.bilibili.com/bapis/bilibili.api.ticket.v1.Ticket/GenWebTicket"
     params = {
         "key_id": "ec02",
         "hexsign": o,
-        "context[ts]": f"{int(time.time())}",
+        "context[ts]": f"{ts}",
         "csrf": "",
     }
     async with ClientSession(headers=headers) as session:

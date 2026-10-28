@@ -27,6 +27,7 @@ _analysis_cookie = getattr(config, "analysis_bilibili_cookie", "")
 if isinstance(_analysis_cookie, (list, tuple, set)):
     _analysis_cookie = ";".join(str(i) for i in _analysis_cookie)
 analysis_bilibili_cookie = str(_analysis_cookie or "")
+_cached_spi_cookies: Dict[str, str] = {}
 
 
 def parse_cookie(cookie: str) -> Dict[str, str]:
@@ -48,15 +49,20 @@ async def init_cookie(session: ClientSession, use_config: bool = True) -> None:
 
     cookies: Dict[str, str] = {}
     if not current_cookies.get("buvid3") and "buvid3" not in config_cookies:
-        try:
-            async with session.get(
-                "https://api.bilibili.com/x/frontend/finger/spi"
-            ) as resp:
-                spi = (await resp.json(content_type=None)).get("data") or {}
-            cookies = {"buvid3": spi.get("b_3", ""), "buvid4": spi.get("b_4", "")}
-            cookies = {k: v for k, v in cookies.items() if v}
-        except Exception as e:
-            nonebot.logger.warning(f"analysis_bilibili: 获取 buvid 失败 {e!r}")
+        if _cached_spi_cookies.get("buvid3"):
+            cookies = dict(_cached_spi_cookies)
+        else:
+            try:
+                async with session.get(
+                    "https://api.bilibili.com/x/frontend/finger/spi"
+                ) as resp:
+                    spi = (await resp.json(content_type=None)).get("data") or {}
+                cookies = {"buvid3": spi.get("b_3", ""), "buvid4": spi.get("b_4", "")}
+                cookies = {k: v for k, v in cookies.items() if v}
+                if cookies.get("buvid3"):
+                    _cached_spi_cookies.update(cookies)
+            except Exception as e:
+                nonebot.logger.warning(f"analysis_bilibili: 获取 buvid 失败 {e!r}")
 
     if config_cookies:
         cookies.update(config_cookies)
@@ -75,20 +81,28 @@ async def init_cookie(session: ClientSession, use_config: bool = True) -> None:
 
 
 async def fetch_api(
-    session: ClientSession, url: str, retry: int = 2
+    session: ClientSession,
+    url: str,
+    retry: int = 2,
+    headers: Optional[Dict[str, str]] = None,
 ) -> Optional[Dict[str, Any]]:
     for index in range(retry):
         # 首次尝试允许使用配置的 cookie；重试时只用匿名指纹，避免沿用已过期的配置
         await init_cookie(session, use_config=index == 0)
         try:
-            async with session.get(url) as resp:
+            async with session.get(url, headers=headers) as resp:
                 try:
                     data = await resp.json(content_type=None)
                 except Exception:
                     data = None
-                if isinstance(data, dict) and data.get("code") not in RISK_CODES:
-                    return data
-                code = data.get("code") if isinstance(data, dict) else "非 JSON"
+                if isinstance(data, dict):
+                    inner = data.get("data")
+                    has_voucher = isinstance(inner, dict) and "v_voucher" in inner
+                    if data.get("code") not in RISK_CODES and not has_voucher:
+                        return data
+                    code = "v_voucher" if has_voucher else data.get("code")
+                else:
+                    code = "非 JSON"
                 nonebot.logger.warning(
                     f"analysis_bilibili: 接口风控 (HTTP {resp.status} / code {code}) {url}"
                 )
@@ -96,6 +110,7 @@ async def fetch_api(
             nonebot.logger.warning(f"analysis_bilibili: 请求失败 {e!r} {url}")
         if index < retry - 1:
             # 清空 cookie 后重新获取，避免沿用已被风控的指纹
+            _cached_spi_cookies.clear()
             ticket = session.cookie_jar.filter_cookies(
                 URL("https://api.bilibili.com/")
             ).get("bili_ticket")
@@ -157,13 +172,12 @@ async def bili_keyword(
 
         # 避免多个机器人解析重复推送
         if group_id and vurl:
-            if group_id in analysis_stat:
-                if analysis_stat[group_id].get(vurl):
-                    return False
-                analysis_stat[group_id].set(vurl)
-            else:
-                analysis_stat[group_id] = ExpiringCache(expire_seconds=reanalysis_time)
-                analysis_stat[group_id].set(vurl)
+            cache = analysis_stat.setdefault(
+                group_id, ExpiringCache(expire_seconds=reanalysis_time)
+            )
+            if cache.get(vurl):
+                return False
+            cache.set(vurl)
 
     except Exception as e:
         msg = "bili_keyword Error: {}".format(type(e))
@@ -249,8 +263,7 @@ def extract(text: str) -> Tuple[str, Optional[str], Optional[str]]:
 
 async def search_bili_by_title(title: str, session: ClientSession) -> Optional[str]:
     try:
-        # set headers
-        await init_cookie(session)
+        # 先请求主站以获取配套的 buvid3 与 b_nut，避免先调 init_cookie 导致主站不下发 b_nut 触发搜索 v_voucher 验证
         mainsite_url = "https://www.bilibili.com"
         async with session.get(mainsite_url) as resp:
             assert resp.status == 200
@@ -264,7 +277,11 @@ async def search_bili_by_title(title: str, session: ClientSession) -> Optional[s
 
         session.cookie_jar.update_cookies({"bili_ticket": bili_ticket})
 
-        result = await fetch_api(session, search_url)
+        result = await fetch_api(
+            session,
+            search_url,
+            headers={"Referer": "https://search.bilibili.com/"},
+        )
         if not result:
             return None
 

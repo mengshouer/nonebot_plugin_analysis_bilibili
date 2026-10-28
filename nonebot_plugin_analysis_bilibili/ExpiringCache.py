@@ -1,28 +1,42 @@
-import threading
+import time
+from typing import Any, Dict, Optional
 
 
 class ExpiringCache:
-    def __init__(self, expire_seconds=0):
-        self.cache = set()
+    def __init__(self, expire_seconds: float = 0):
+        self.cache: Dict[Any, float] = {}
         self.expire_seconds = expire_seconds
 
-    def set(self, value):
+    def _evict_expired(self) -> None:
+        if self.expire_seconds <= 0:
+            return
+        now = time.monotonic()
+        while self.cache:
+            oldest_key = next(iter(self.cache))
+            if self.cache[oldest_key] <= now:
+                del self.cache[oldest_key]
+            else:
+                break
+
+    def set(self, value: Any) -> None:
+        self._evict_expired()
         if value in self.cache:
             return
         if self.expire_seconds <= 0:
             self.cache.clear()
-        self.cache.add(value)
-        if self.expire_seconds > 0:
-            threading.Timer(self.expire_seconds, self._expire, args=(value,)).start()
+            self.cache[value] = 0.0
+        else:
+            self.cache[value] = time.monotonic() + self.expire_seconds
 
-    def _expire(self, value):
-        if value in self.cache:
-            self.cache.remove(value)
+    def get(self, value: Any) -> Optional[Any]:
+        exp = self.cache.get(value)
+        if exp is None:
+            return None
+        if self.expire_seconds > 0 and exp <= time.monotonic():
+            del self.cache[value]
+            return None
+        return value
 
-    def get(self, value):
-        if value in self.cache:
-            return value
-        return None
-
-    def __str__(self):
-        return str(self.cache)
+    def __str__(self) -> str:
+        self._evict_expired()
+        return str(set(self.cache.keys()))
