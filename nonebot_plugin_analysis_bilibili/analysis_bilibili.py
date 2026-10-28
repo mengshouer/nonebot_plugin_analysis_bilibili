@@ -11,7 +11,26 @@ from .ExpiringCache import ExpiringCache
 from .sign import get_query, get_ticket
 
 # analysis_stat : {group_id: ExpiringCache}
-analysis_stat: Dict[int, ExpiringCache] = {}
+analysis_stat: Dict[Union[int, str], ExpiringCache] = {}
+
+B23_REGEX = re.compile(r"b23\.tv/(\w+)|(bili(22|23|33|2233)\.cn)/(\w+)", re.I)
+PAGE_REGEX = re.compile(r"([?&]|&amp;)p=\d+")
+TIME_REGEX = re.compile(r"([?&]|&amp;)t=\d+")
+AID_REGEX = re.compile(r"(?<![a-zA-Z0-9])av\d+(?![a-zA-Z0-9])")
+BVID_REGEX = re.compile(r"(?<![a-zA-Z0-9])BV[A-Za-z0-9]{10}(?![A-Za-z0-9])")
+EPID_REGEX = re.compile(r"(?<![a-zA-Z0-9])ep\d+(?![a-zA-Z0-9])")
+SSID_REGEX = re.compile(r"(?<![a-zA-Z0-9])ss\d+(?![a-zA-Z0-9])")
+MDID_REGEX = re.compile(r"(?<![a-zA-Z0-9])md\d+(?![a-zA-Z0-9])")
+ROOM_ID_REGEX = re.compile(r"live\.bilibili\.com/(blanc/|h5/)?(\d+)")
+CVID_REGEX = re.compile(
+    r"(/read/(cv|mobile|native)(/|\?id=)?|(?<![a-zA-Z0-9])cv)(\d+)(?![a-zA-Z0-9])"
+)
+DYNAMIC_TYPE2_REGEX = re.compile(
+    r"(t|m)\.bilibili\.com/(\d+)\?(.*?)(&|&amp;)type=2"
+)
+DYNAMIC_ID_REGEX = re.compile(r"(t|m)\.bilibili\.com/(opus/)?(\d+)")
+OPUS_ID_REGEX = re.compile(r"bilibili\.com/opus/(\d+)")
+DYNAMIC_MOBILE_REGEX = re.compile(r"m\.bilibili\.com/dynamic/(\d+)")
 
 
 config = nonebot.get_driver().config
@@ -123,7 +142,9 @@ async def fetch_api(
 
 
 def resize_image(src: str, is_cover=False) -> str:
-    img_type = src[-3:]
+    if not src:
+        return ""
+    img_type = src.rsplit(".", 1)[-1] if "." in src else src[-3:]
     if cover_images_size and is_cover:
         return f"{src}@{cover_images_size}.{img_type}"
     if images_size:
@@ -132,7 +153,7 @@ def resize_image(src: str, is_cover=False) -> str:
 
 
 async def bili_keyword(
-    group_id: Optional[int], text: str, session: ClientSession
+    group_id: Optional[Union[int, str]], text: str, session: ClientSession
 ) -> Union[List[Union[List[str], str]], str, bool]:
     try:
         if not text:
@@ -185,9 +206,7 @@ async def bili_keyword(
 
 
 async def b23_extract(text: str, session: ClientSession) -> str:
-    b23 = re.compile(r"b23.tv/(\w+)|(bili(22|23|33|2233).cn)/(\w+)").search(
-        text.replace("\\", "")
-    )
+    b23 = B23_REGEX.search(text.replace("\\", ""))
     if not b23:
         return text
     url = f"https://{b23[0]}"
@@ -204,33 +223,31 @@ def extract(text: str) -> Tuple[str, Optional[str], Optional[str]]:
     try:
         url = ""
         # 视频分p
-        page = re.compile(r"([?&]|&amp;)p=\d+").search(text)
+        page = PAGE_REGEX.search(text)
         # 视频播放定位时间
-        time = re.compile(r"([?&]|&amp;)t=\d+").search(text)
+        time = TIME_REGEX.search(text)
         # 主站视频 av 号
-        aid = re.compile(r"av\d+").search(text)
+        aid = AID_REGEX.search(text)
         # 主站视频 bv 号
-        bvid = re.compile(r"BV([A-Za-z0-9]{10})+").search(text)
+        bvid = BVID_REGEX.search(text)
         # 番剧视频页
-        epid = re.compile(r"ep\d+").search(text)
+        epid = EPID_REGEX.search(text)
         # 番剧剧集ssid(season_id)
-        ssid = re.compile(r"ss\d+").search(text)
+        ssid = SSID_REGEX.search(text)
         # 番剧详细页
-        mdid = re.compile(r"md\d+").search(text)
+        mdid = MDID_REGEX.search(text)
         # 直播间
-        room_id = re.compile(r"live.bilibili.com/(blanc/|h5/)?(\d+)").search(text)
+        room_id = ROOM_ID_REGEX.search(text)
         # 文章
-        cvid = re.compile(r"(/read/(cv|mobile|native)(/|\?id=)?|^cv)(\d+)").search(text)
+        cvid = CVID_REGEX.search(text)
         # 动态
-        dynamic_id_type2 = re.compile(
-            r"(t|m).bilibili.com/(\d+)\?(.*?)(&|&amp;)type=2"
-        ).search(text)
+        dynamic_id_type2 = DYNAMIC_TYPE2_REGEX.search(text)
         # 动态
-        dynamic_id = re.compile(r"(t|m).bilibili.com/(opus/)?(\d+)").search(text)
+        dynamic_id = DYNAMIC_ID_REGEX.search(text)
         # 动态/图文（新版 opus 链接）
-        opus_id = re.compile(r"bilibili.com/opus/(\d+)").search(text)
+        opus_id = OPUS_ID_REGEX.search(text)
         # 动态（移动端分享链接）
-        dynamic_id_mobile = re.compile(r"m.bilibili.com/dynamic/(\d+)").search(text)
+        dynamic_id_mobile = DYNAMIC_MOBILE_REGEX.search(text)
         if bvid:
             url = f"https://api.bilibili.com/x/web-interface/view?bvid={bvid[0]}"
         elif aid:
@@ -299,7 +316,7 @@ async def search_bili_by_title(title: str, session: ClientSession) -> Optional[s
 
 # 处理超过一万的数字
 def handle_num(num: int) -> str:
-    if num > 10000:
+    if num >= 10000:
         num = f"{num / 10000:.2f}万"
     return num
 
@@ -594,11 +611,9 @@ async def dynamic_detail(
         draws = []
         archive_cover = ""
         archive_msg = ""
-        split = "\n----------------------------------------\n"
         major = module_dynamic["major"]
         if isinstance(major, dict):
             if module_type == "DYNAMIC_TYPE_DRAW":
-                split = split if additional_msg else ""
                 if has_image:
                     draws = [
                         resize_image(i.get("src"))
@@ -621,8 +636,12 @@ async def dynamic_detail(
             orig_id = (res.get("orig") or {}).get("id_str")
             if orig_id:
                 archive_msg += f"转发动态：https://t.bilibili.com/{orig_id}\n"
-        else:
-            split = ""
+
+        split = (
+            "\n----------------------------------------\n"
+            if (content or draws) and (archive_msg or additional_msg)
+            else ""
+        )
 
         msg = [
             content,

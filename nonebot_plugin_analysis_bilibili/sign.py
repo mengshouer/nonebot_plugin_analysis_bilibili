@@ -4,13 +4,18 @@ import time
 import urllib.parse
 from functools import reduce
 from hashlib import md5
-from aiohttp import ClientSession
+from typing import Optional, Tuple
+from aiohttp import ClientSession, ClientTimeout
 
 # doc: https://github.com/SocialSisterYi/bilibili-API-collect/blob/master/docs/misc/sign/wbi.md
 
 headers = {
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
 }
+request_timeout = ClientTimeout(total=15)
+CACHE_TTL = 3600
+_wbi_cache: Optional[Tuple[str, str, float]] = None
+_ticket_cache: Optional[Tuple[str, float]] = None
 
 # fmt: off
 mixinKeyEncTab = [
@@ -31,6 +36,7 @@ def encWbi(params: dict, img_key: str, sub_key: str):
     "为请求参数进行 wbi 签名"
     mixin_key = getMixinKey(img_key + sub_key)
     curr_time = round(time.time())
+    params = dict(params)
     params["wts"] = curr_time  # 添加 wts 字段
     params = dict(sorted(params.items()))  # 按照 key 重排参数
     # 过滤 value 中的 "!'()*" 字符
@@ -46,13 +52,18 @@ def encWbi(params: dict, img_key: str, sub_key: str):
 
 async def getWbiKeys():
     "获取最新的 img_key 和 sub_key"
-    async with ClientSession(headers=headers) as session:
+    global _wbi_cache
+    now = time.monotonic()
+    if _wbi_cache and now < _wbi_cache[2]:
+        return _wbi_cache[0], _wbi_cache[1]
+    async with ClientSession(headers=headers, timeout=request_timeout) as session:
         async with session.get("https://api.bilibili.com/x/web-interface/nav") as resp:
             json_content = await resp.json()
     img_url: str = json_content["data"]["wbi_img"]["img_url"]
     sub_url: str = json_content["data"]["wbi_img"]["sub_url"]
     img_key = img_url.rsplit("/", 1)[1].split(".")[0]
     sub_key = sub_url.rsplit("/", 1)[1].split(".")[0]
+    _wbi_cache = (img_key, sub_key, now + CACHE_TTL)
     return img_key, sub_key
 
 
@@ -93,6 +104,10 @@ async def get_ticket():
     """
     获取ticket
     """
+    global _ticket_cache
+    now = time.monotonic()
+    if _ticket_cache and now < _ticket_cache[1]:
+        return _ticket_cache[0]
     ts = int(time.time())
     o = hmac_sha256("XgwSnGZ1p", f"ts{ts}")
     url = "https://api.bilibili.com/bapis/bilibili.api.ticket.v1.Ticket/GenWebTicket"
@@ -102,10 +117,12 @@ async def get_ticket():
         "context[ts]": f"{ts}",
         "csrf": "",
     }
-    async with ClientSession(headers=headers) as session:
+    async with ClientSession(headers=headers, timeout=request_timeout) as session:
         async with session.post(url, params=params) as resp:
             json_content = await resp.json()
-            return json_content["data"]["ticket"]
+            ticket = json_content["data"]["ticket"]
+            _ticket_cache = (ticket, now + CACHE_TTL)
+            return ticket
 
 
 if __name__ == "__main__":

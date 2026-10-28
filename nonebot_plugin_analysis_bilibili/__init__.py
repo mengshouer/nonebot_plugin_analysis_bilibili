@@ -1,6 +1,6 @@
 import re
-from typing import List, Union
-from aiohttp import ClientSession
+from typing import List, Optional, Union
+from aiohttp import ClientSession, ClientTimeout
 from nonebot import on_regex, logger, require, on_message
 from nonebot.adapters import Event
 from nonebot.rule import Rule
@@ -26,6 +26,9 @@ __plugin_meta__ = PluginMetadata(
 headers = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36 Edg/127.0.0.0"
 }
+request_timeout = ClientTimeout(total=15)
+
+IMAGE_EXTENSIONS = (".jpg", ".jpeg", ".png", ".gif", ".bmp", ".jfif", ".webp")
 
 whitelist = [str(i) for i in getattr(config, "analysis_whitelist", [])]
 group_whitelist = [str(i) for i in getattr(config, "analysis_group_whitelist", [])]
@@ -41,23 +44,22 @@ async def is_enable_search() -> bool:
     return enable_search
 
 
+def get_group_id(event: Event) -> Optional[str]:
+    gid = getattr(event, "group_id", None) or getattr(event, "channel_id", None)
+    return str(gid) if gid is not None else None
+
+
 async def is_normal(event: Event) -> bool:
     user_id = str(event.get_user_id())
-    group_id = str(
-        event.group_id
-        if hasattr(event, "group_id")
-        else event.channel_id
-        if hasattr(event, "channel_id")
-        else None
-    )
+    group_id = get_group_id(event)
 
-    if user_id in whitelist or group_id in group_whitelist:
+    if user_id in whitelist or (group_id is not None and group_id in group_whitelist):
         return True
 
     if len(whitelist) > 0 or len(group_whitelist) > 0:
         return False
 
-    if user_id in blacklist or group_id in group_blacklist:
+    if user_id in blacklist or (group_id is not None and group_id in group_blacklist):
         return False
 
     return True
@@ -68,15 +70,15 @@ pattern = (
     r"(?:b23\.tv|bili(?:22|23|33|2233)\.cn|\.bilibili\.com|QQ小程序(?:&amp;#93;|&#93;|\])哔哩哔哩).{0,500}"
 )
 
-analysis_bili = on_regex(
-    pattern,
-    rule=is_normal,
-    block=False,
-    priority=11,
-)
-
 if use_on_message:
     analysis_bili = on_message(rule=is_normal, block=False, priority=11)
+else:
+    analysis_bili = on_regex(
+        pattern,
+        rule=is_normal,
+        block=False,
+        priority=11,
+    )
 
 
 rule = Rule(is_enable_search, is_normal)
@@ -84,15 +86,9 @@ search_bili = on_regex(r"^搜视频.*", rule=rule)
 
 
 def is_image(msg: str) -> bool:
-    return msg[-4:].lower() in [
-        ".jpg",
-        ".jpeg",
-        ".png",
-        ".gif",
-        ".bmp",
-        "jfif",
-        "webp",
-    ]
+    return msg.startswith(("http://", "https://")) and msg.lower().endswith(
+        IMAGE_EXTENSIONS
+    )
 
 
 def flatten(container):
@@ -136,15 +132,11 @@ async def send_msg(msg_list: List[Union[List[str], str, bool]]) -> None:
 async def get_msg(
     event: Event, text: str, search: bool = False
 ) -> Union[List[str], bool]:
-    group_id = str(
-        event.group_id
-        if hasattr(event, "group_id")
-        else event.channel_id
-        if hasattr(event, "channel_id")
-        else None
-    )
+    group_id = get_group_id(event)
 
-    async with ClientSession(trust_env=trust_env, headers=headers) as session:
+    async with ClientSession(
+        trust_env=trust_env, headers=headers, timeout=request_timeout
+    ) as session:
         if search:
             text = await search_bili_by_title(text, session=session)
         else:
